@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>静闻的光影花园</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Marcellus&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="page">
+      <header class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">For 静闻 · Vertex Image Lab</p>
+          <h1>静闻的光影花园</h1>
+          <p class="subtitle">
+            把一张照片变成三种惊喜。选择一个修正模板，让画面更像你心里的故事。
+          </p>
+        </div>
+        <div class="hero-card">
+          <div class="badge">Love Notes</div>
+          <div class="model-name">给静闻的专属礼物</div>
+          <div class="helper" id="loveNoteText">我的第一个诺言：每次都把你放在心尖上。</div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel">
+          <h2>灵感输入</h2>
+          <label class="drop" for="imageInput">
+            <input id="imageInput" type="file" accept="image/*" />
+            <span>放一张照片，让故事从这里开始</span>
+          </label>
+          <div class="preview">
+            <img id="previewImage" alt="预览" />
+          </div>
+          <label class="field">
+            <span>心愿提示词</span>
+            <textarea
+              id="promptInput"
+              placeholder="比如：像旅行杂志封面那样明亮温暖"
+              rows="5"
+            ></textarea>
+          </label>
+          <label class="field">
+            <span>生成数量</span>
+            <div class="count-control">
+              <input
+                id="countRange"
+                type="range"
+                min="1"
+                max="6"
+                step="1"
+                value="3"
+              />
+              <div class="count-value">
+                <span id="countValue">3</span>
+                <span>张</span>
+              </div>
+            </div>
+          </label>
+          <label class="field">
+            <span>图像比例</span>
+            <button class="ratio-auto" type="button" id="autoRatioButton">
+              保持原图
+            </button>
+            <div class="ratio-groups">
+              <div class="ratio-row" id="ratioRowPortrait"></div>
+              <div class="ratio-row" id="ratioRowLandscape"></div>
+            </div>
+          </label>
+          <label class="field">
+            <span>修正模板</span>
+            <div class="quick-templates" id="quickTemplates"></div>
+          </label>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="progressBar"></div>
+            <span id="countdownText">准备中</span>
+          </div>
+          <button id="generateBtn">为静闻生成 3 张惊喜</button>
+          <p class="note" id="statusText"></p>
+        </section>
+
+        <section class="panel output">
+          <div class="output-header">
+            <h2>心动结果</h2>
+            <span id="outputText"></span>
+          </div>
+          <div class="grid" id="resultGrid">
+            <div class="placeholder">结果 1</div>
+            <div class="placeholder">结果 2</div>
+            <div class="placeholder">结果 3</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="/static/app_v2.js"></script>
+  </body>
+</html>

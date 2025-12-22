@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>记录 · 静闻的光影花园</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">Admin</p>
+          <h1>生成记录</h1>
+          <p class="subtitle">你可以查看每次生成的提示词与图片路径。</p>
+        </div>
+        <div class="hero-card">
+          <div class="badge">Session</div>
+          <div class="model-name">已登录</div>
+          <a class="helper" href="/logout">退出登录</a>
+        </div>
+      </header>
+
+      <section class="panel">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>提示词</th>
+              <th>模板</th>
+              <th>比例</th>
+              <th>输入图</th>
+              <th>输出图</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td>{{ row[1] }}</td>
+              <td>{{ row[2] }}</td>
+              <td>{{ row[3] }}</td>
+              <td>{{ row[4] }}</td>
+              <td>{{ row[5] }}</td>
+              <td>{{ row[6] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </body>
+</html>

@@ -36,6 +36,10 @@ def load_env_file(path: Path) -> None:
 app = Flask(__name__)
 load_env_file(Path(__file__).resolve().parent / ".env")
 app.secret_key = os.getenv("FLASK_SECRET", "change-me")
+app.config.update(
+    SESSION_PERMANENT=False,
+    SESSION_COOKIE_SAMESITE="Strict",
+)
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 INPUT_DIR = DATA_DIR / "inputs"
@@ -56,11 +60,16 @@ def init_db() -> None:
                 prompt TEXT NOT NULL,
                 template TEXT,
                 ratio TEXT,
+                ip TEXT,
                 input_path TEXT NOT NULL,
                 output_path TEXT NOT NULL
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE generations ADD COLUMN ip TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
@@ -93,6 +102,7 @@ def save_generation_record(
     prompt: str,
     template: str,
     ratio: str,
+    ip: str,
     input_ref: str,
     output_ref: str,
 ) -> None:
@@ -103,6 +113,7 @@ def save_generation_record(
                 "prompt": prompt,
                 "template": template,
                 "ratio": ratio,
+                "ip": ip,
                 "input_ref": input_ref,
                 "output_ref": output_ref,
             }
@@ -110,13 +121,14 @@ def save_generation_record(
         return
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
-            "INSERT INTO generations (created_at, prompt, template, ratio, input_path, output_path) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO generations (created_at, prompt, template, ratio, ip, input_path, output_path) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 datetime.utcnow().isoformat(timespec="seconds"),
                 prompt,
                 template,
                 ratio,
+                ip,
                 input_ref,
                 output_ref,
             ),
@@ -219,6 +231,7 @@ def login():
         expected = os.getenv("APP_PASSWORD")
         if expected and password == expected:
             session["authenticated"] = True
+            session.permanent = False
             return redirect(url_for("index"))
         error = "密码错误。"
     return render_template("login.html", error=error)
@@ -238,7 +251,7 @@ def admin():
     if client:
         response = (
             client.table("generations")
-            .select("created_at,prompt,template,ratio,input_ref,output_ref")
+            .select("created_at,prompt,template,ratio,ip,input_ref,output_ref")
             .order("created_at", desc=True)
             .execute()
         )
@@ -248,6 +261,7 @@ def admin():
                 item.get("prompt"),
                 item.get("template"),
                 item.get("ratio"),
+                item.get("ip"),
                 item.get("input_ref"),
                 item.get("output_ref"),
             )
@@ -256,7 +270,7 @@ def admin():
     else:
         with sqlite3.connect(DB_PATH) as conn:
             rows = conn.execute(
-                "SELECT created_at, prompt, template, ratio, input_path, output_path "
+                "SELECT created_at, prompt, template, ratio, ip, input_path, output_path "
                 "FROM generations ORDER BY id DESC"
             ).fetchall()
     return render_template("admin.html", rows=rows)
@@ -367,6 +381,7 @@ def generate():
         prompt=prompt,
         template=template_value,
         ratio=aspect_ratio,
+        ip=request.headers.get("x-forwarded-for", request.remote_addr),
         input_ref=input_ref,
         output_ref=output_ref,
     )

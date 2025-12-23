@@ -29,6 +29,7 @@
               <th>提示词</th>
               <th>模板</th>
               <th>比例</th>
+              <th>IP</th>
               <th>输入图</th>
               <th>输出图</th>
             </tr>
@@ -40,18 +41,19 @@
               <td>{{ row[1] }}</td>
               <td>{{ row[2] }}</td>
               <td>{{ row[3] }}</td>
-              <td>
-                {% if row[4].startswith('http') %}
-                <a href="{{ row[4] }}" target="_blank">打开</a>
-                {% else %}
-                {{ row[4] }}
-                {% endif %}
-              </td>
+              <td>{{ row[4] }}</td>
               <td>
                 {% if row[5].startswith('http') %}
                 <a href="{{ row[5] }}" target="_blank">打开</a>
                 {% else %}
                 {{ row[5] }}
+                {% endif %}
+              </td>
+              <td>
+                {% if row[6].startswith('http') %}
+                <a href="{{ row[6] }}" target="_blank">打开</a>
+                {% else %}
+                {{ row[6] }}
                 {% endif %}
               </td>
             </tr>

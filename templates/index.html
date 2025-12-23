@@ -32,78 +32,69 @@
 
       <main class="layout">
         <section class="panel">
-          <h2>灵感输入</h2>
-          <label class="drop" for="imageInput">
-            <input id="imageInput" type="file" accept="image/*" />
-            <span>放一张照片，让故事从这里开始</span>
-          </label>
-          <div class="preview">
-            <img id="previewImage" alt="预览" />
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="single">单张修图模式</button>
+            <button class="tab-btn" data-tab="style">风格模仿模式</button>
           </div>
-          <label class="field">
-            <span>心愿提示词</span>
-            <textarea
-              id="promptInput"
-              placeholder="比如：像旅行杂志封面那样明亮温暖"
-              rows="5"
-            ></textarea>
-          </label>
-          <label class="field">
-            <span>生成数量</span>
-            <div class="count-control">
-              <input
-                id="countRange"
-                type="range"
-                min="1"
-                max="6"
-                step="1"
-                value="3"
-              />
-              <div class="count-value">
-                <span id="countValue">3</span>
-                <span>张</span>
+
+          <div class="tab-panel active" id="tab-single">
+            <h2>灵感输入</h2>
+            <label class="drop" for="imageInput">
+              <input id="imageInput" type="file" accept="image/*" />
+              <span>放一张照片，让故事从这里开始</span>
+            </label>
+            <div class="preview">
+              <img id="previewImage" alt="预览" />
+            </div>
+            <label class="field">
+              <span>心愿提示词</span>
+              <textarea
+                id="promptInput"
+                placeholder="比如：像旅行杂志封面那样明亮温暖"
+                rows="5"
+              ></textarea>
+            </label>
+            <label class="field">
+              <span>生成数量</span>
+              <div class="count-control">
+                <input
+                  id="countRange"
+                  type="range"
+                  min="1"
+                  max="6"
+                  step="1"
+                  value="3"
+                />
+                <div class="count-value">
+                  <span id="countValue">3</span>
+                  <span>张</span>
+                </div>
               </div>
+            </label>
+            <label class="field">
+              <span>图像比例</span>
+              <button class="ratio-auto" type="button" id="autoRatioButton">
+                保持原图
+              </button>
+              <div class="ratio-groups">
+                <div class="ratio-row" id="ratioRowPortrait"></div>
+                <div class="ratio-row" id="ratioRowLandscape"></div>
+              </div>
+            </label>
+            <label class="field">
+              <span>修正模板</span>
+              <div class="quick-templates" id="quickTemplates"></div>
+            </label>
+            <div class="progress-wrap">
+              <div class="progress-bar" id="progressBar"></div>
+              <span id="countdownText">准备中</span>
             </div>
-          </label>
-          <label class="field">
-            <span>图像比例</span>
-            <button class="ratio-auto" type="button" id="autoRatioButton">
-              保持原图
-            </button>
-            <div class="ratio-groups">
-              <div class="ratio-row" id="ratioRowPortrait"></div>
-              <div class="ratio-row" id="ratioRowLandscape"></div>
-            </div>
-          </label>
-          <label class="field">
-            <span>修正模板</span>
-            <div class="quick-templates" id="quickTemplates"></div>
-          </label>
-          <div class="progress-wrap">
-            <div class="progress-bar" id="progressBar"></div>
-            <span id="countdownText">准备中</span>
+            <button id="generateBtn">为静闻生成 3 张惊喜</button>
+            <p class="note" id="statusText"></p>
           </div>
-          <button id="generateBtn">为静闻生成 3 张惊喜</button>
-          <p class="note" id="statusText"></p>
-        </section>
 
-        <section class="panel output">
-          <div class="output-header">
-            <h2>心动结果</h2>
-            <span id="outputText"></span>
-          </div>
-          <div class="grid" id="resultGrid">
-            <div class="placeholder">结果 1</div>
-            <div class="placeholder">结果 2</div>
-            <div class="placeholder">结果 3</div>
-          </div>
-        </section>
-      </main>
-
-      <section class="panel accordion">
-        <details id="styleSection">
-          <summary>风格模仿模式（参考图 + 修改图）</summary>
-          <div class="accordion-body">
+          <div class="tab-panel" id="tab-style">
+            <h2>风格模仿</h2>
             <div class="style-grid">
               <label class="drop small" for="styleImageInput">
                 <input id="styleImageInput" type="file" accept="image/*" />
@@ -146,8 +137,21 @@
             <button id="styleGenerateBtn">开始生成</button>
             <p class="note" id="styleStatusText"></p>
           </div>
-        </details>
-      </section>
+        </section>
+
+        <section class="panel output">
+          <div class="output-header">
+            <h2>心动结果</h2>
+            <span id="outputText"></span>
+          </div>
+          <div class="grid" id="resultGrid">
+            <div class="placeholder">结果 1</div>
+            <div class="placeholder">结果 2</div>
+            <div class="placeholder">结果 3</div>
+          </div>
+        </section>
+      </main>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>

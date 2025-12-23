@@ -388,18 +388,33 @@ button:hover {
   vertical-align: top;
 }
 
-.accordion summary {
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
+.tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.accordion summary::-webkit-details-marker {
+.tab-btn {
+  border: 1px solid rgba(193, 69, 44, 0.2);
+  background: #fff4ef;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #5c3f36;
+}
+
+.tab-btn.active {
+  background: linear-gradient(120deg, #ff8a7a, #ffd2c4);
+  color: #fff;
+  border-color: transparent;
+}
+
+.tab-panel {
   display: none;
 }
 
-.accordion-body {
-  margin-top: 16px;
+.tab-panel.active {
   display: grid;
   gap: 16px;
 }

@@ -56,6 +56,8 @@ const styleCountRange = document.getElementById("styleCountRange");
 const styleCountValue = document.getElementById("styleCountValue");
 const styleGenerateBtn = document.getElementById("styleGenerateBtn");
 const styleStatusText = document.getElementById("styleStatusText");
+const tabButtons = document.querySelectorAll(".tab-btn");
+const tabPanels = document.querySelectorAll(".tab-panel");
 const loveNoteText = document.getElementById("loveNoteText");
 const progressBar = document.getElementById("progressBar");
 const countdownText = document.getElementById("countdownText");
@@ -520,6 +522,16 @@ countRange.addEventListener("input", () => {
 
 styleCountRange.addEventListener("input", () => {
   styleCountValue.textContent = styleCountRange.value;
+});
+
+tabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.tab;
+    tabButtons.forEach((node) => node.classList.remove("active"));
+    tabPanels.forEach((panel) => panel.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${target}`)?.classList.add("active");
+  });
 });
 
 renderTemplateOptions();

@@ -56,6 +56,8 @@ const styleCountRange = document.getElementById("styleCountRange");
 const styleCountValue = document.getElementById("styleCountValue");
 const styleGenerateBtn = document.getElementById("styleGenerateBtn");
 const styleStatusText = document.getElementById("styleStatusText");
+const styleProgressBar = document.getElementById("styleProgressBar");
+const styleCountdownText = document.getElementById("styleCountdownText");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanels = document.querySelectorAll(".tab-panel");
 const loveNoteText = document.getElementById("loveNoteText");
@@ -327,6 +329,13 @@ function setProgress(percent, secondsLeft) {
     : "准备中";
 }
 
+function setStyleProgress(percent, secondsLeft) {
+  styleProgressBar.style.width = `${percent}%`;
+  styleCountdownText.textContent = secondsLeft
+    ? `下一张约 ${secondsLeft}s`
+    : "准备中";
+}
+
 function boostPetals(active) {
   petalBoost = active ? 2.6 : 1;
 }
@@ -471,11 +480,28 @@ async function generateStyleImages() {
 
     try {
       boostPetals(true);
+      const targetSeconds = 30;
+      let secondsLeft = targetSeconds;
+      setStyleProgress(0, secondsLeft);
+      const countdownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        const percent = Math.min(
+          100,
+          ((targetSeconds - secondsLeft) / targetSeconds) * 100
+        );
+        setStyleProgress(percent, secondsLeft);
+        if (secondsLeft <= 0) {
+          clearInterval(countdownTimer);
+        }
+      }, 1000);
+
       const response = await fetch("/generate", {
         method: "POST",
         body: formData,
       });
       const data = await response.json();
+      clearInterval(countdownTimer);
+      setStyleProgress(100, 0);
       boostPetals(false);
       if (!response.ok) {
         styleStatusText.textContent = data.error || "生成失败。";
@@ -498,6 +524,7 @@ async function generateStyleImages() {
 
   if (styleStatusText.textContent.startsWith("已生成")) {
     styleStatusText.textContent = "完成。";
+    setStyleProgress(0, 0);
   }
 }
 

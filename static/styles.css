@@ -425,16 +425,16 @@ button:hover {
   grid-template-columns: 1fr;
 }
 
-.style-preview {
+.style-box {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 12px;
 }
 
-.style-preview img {
+.style-box img {
   width: 100%;
   border-radius: 16px;
   display: none;
+  background: #faf1ec;
 }
 
 @media (max-width: 768px) {

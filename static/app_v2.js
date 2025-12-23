@@ -54,6 +54,9 @@ const targetPreviewImage = document.getElementById("targetPreviewImage");
 const stylePromptInput = document.getElementById("stylePromptInput");
 const styleCountRange = document.getElementById("styleCountRange");
 const styleCountValue = document.getElementById("styleCountValue");
+const styleRatioRowPortrait = document.getElementById("styleRatioRowPortrait");
+const styleRatioRowLandscape = document.getElementById("styleRatioRowLandscape");
+const styleAutoRatioControl = document.getElementById("styleAutoRatioButton");
 const styleGenerateBtn = document.getElementById("styleGenerateBtn");
 const styleStatusText = document.getElementById("styleStatusText");
 const styleProgressBar = document.getElementById("styleProgressBar");
@@ -73,6 +76,8 @@ let animationId;
 let petalBoost = 1;
 let autoRatioValue = "1:1";
 let selectedRatio = "auto";
+let styleAutoRatioValue = "1:1";
+let styleSelectedRatio = "auto";
 let loveNoteIndex = 0;
 
 const loveNotes = [
@@ -160,6 +165,57 @@ function renderRatioChoices() {
 
   portrait.forEach((item) => ratioRowPortrait.appendChild(makeButton(item)));
   landscape.forEach((item) => ratioRowLandscape.appendChild(makeButton(item)));
+}
+
+function renderStyleRatioChoices() {
+  const portrait = [
+    { label: "1:1", value: "1:1" },
+    { label: "4:5", value: "4:5" },
+    { label: "2:3", value: "2:3" },
+    { label: "3:4", value: "3:4" },
+    { label: "9:16", value: "9:16" },
+  ];
+  const landscape = [
+    { label: "5:4", value: "5:4" },
+    { label: "4:3", value: "4:3" },
+    { label: "3:2", value: "3:2" },
+    { label: "16:9", value: "16:9" },
+    { label: "21:9", value: "21:9" },
+  ];
+
+  const clearActive = () => {
+    styleRatioRowPortrait
+      .querySelectorAll(".ratio-btn")
+      .forEach((node) => node.classList.remove("active"));
+    styleRatioRowLandscape
+      .querySelectorAll(".ratio-btn")
+      .forEach((node) => node.classList.remove("active"));
+  };
+
+  const makeButton = (item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "ratio-btn" + (item.value === styleSelectedRatio ? " active" : "");
+    button.textContent = item.label;
+    button.dataset.value = item.value;
+    button.addEventListener("click", () => {
+      clearActive();
+      if (styleAutoRatioControl) {
+        styleAutoRatioControl.classList.remove("active");
+      }
+      button.classList.add("active");
+      styleSelectedRatio = item.value;
+    });
+    return button;
+  };
+
+  portrait.forEach((item) =>
+    styleRatioRowPortrait.appendChild(makeButton(item))
+  );
+  landscape.forEach((item) =>
+    styleRatioRowLandscape.appendChild(makeButton(item))
+  );
 }
 
 function setupThree() {
@@ -264,6 +320,25 @@ function updateStylePreview(file, imageEl) {
   reader.onload = () => {
     imageEl.src = reader.result;
     imageEl.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateTargetPreview(file) {
+  updateStylePreview(file, targetPreviewImage);
+  if (!file) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const image = new Image();
+    image.onload = () => {
+      styleAutoRatioValue = pickNearestRatio(image.width, image.height);
+      if (styleAutoRatioControl) {
+        styleAutoRatioControl.textContent = `保持原图 (${styleAutoRatioValue})`;
+      }
+    };
+    image.src = reader.result;
   };
   reader.readAsDataURL(file);
 }
@@ -459,7 +534,11 @@ async function generateStyleImages() {
   const total = Number.parseInt(styleCountRange.value, 10);
   styleStatusText.textContent = "生成中，请稍等...";
 
-  const targetRatio = await resolveNearestRatioFromFile(targetFile);
+  const targetRatio =
+    styleSelectedRatio === "auto" ||
+    (styleAutoRatioControl && styleAutoRatioControl.classList.contains("active"))
+      ? styleAutoRatioValue
+      : styleSelectedRatio || styleAutoRatioValue;
 
   resultGrid.innerHTML = "";
   const slots = Array.from({ length: total }, (_, index) => {
@@ -535,7 +614,7 @@ styleImageInput.addEventListener("change", (event) => {
   updateStylePreview(event.target.files[0], stylePreviewImage);
 });
 targetImageInput.addEventListener("change", (event) => {
-  updateStylePreview(event.target.files[0], targetPreviewImage);
+  updateTargetPreview(event.target.files[0]);
 });
 
 generateBtn.addEventListener("click", generateImages);
@@ -563,6 +642,7 @@ tabButtons.forEach((btn) => {
 
 renderTemplateOptions();
 renderRatioChoices();
+renderStyleRatioChoices();
 renderPlaceholders();
 setupThree();
 rotateLoveNotes();
@@ -576,4 +656,18 @@ if (autoRatioControl) {
     selectedRatio = "auto";
   });
   autoRatioControl.classList.add("active");
+}
+
+if (styleAutoRatioControl) {
+  styleAutoRatioControl.addEventListener("click", () => {
+    styleRatioRowPortrait
+      .querySelectorAll(".ratio-btn")
+      .forEach((node) => node.classList.remove("active"));
+    styleRatioRowLandscape
+      .querySelectorAll(".ratio-btn")
+      .forEach((node) => node.classList.remove("active"));
+    styleAutoRatioControl.classList.add("active");
+    styleSelectedRatio = "auto";
+  });
+  styleAutoRatioControl.classList.add("active");
 }

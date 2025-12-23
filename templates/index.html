@@ -96,18 +96,20 @@
           <div class="tab-panel" id="tab-style">
             <h2>风格模仿</h2>
             <div class="style-grid">
-              <label class="drop small" for="styleImageInput">
-                <input id="styleImageInput" type="file" accept="image/*" />
-                <span>上传风格参考图，让画面记住她的气质</span>
-              </label>
-              <label class="drop small" for="targetImageInput">
-                <input id="targetImageInput" type="file" accept="image/*" />
-                <span>上传待修改图，等一场温柔的改写</span>
-              </label>
-            </div>
-            <div class="style-preview">
-              <img id="stylePreviewImage" alt="风格预览" />
-              <img id="targetPreviewImage" alt="修改预览" />
+              <div class="style-box">
+                <label class="drop small" for="styleImageInput">
+                  <input id="styleImageInput" type="file" accept="image/*" />
+                  <span>上传风格参考图，让画面记住她的气质</span>
+                </label>
+                <img id="stylePreviewImage" alt="风格预览" />
+              </div>
+              <div class="style-box">
+                <label class="drop small" for="targetImageInput">
+                  <input id="targetImageInput" type="file" accept="image/*" />
+                  <span>上传待修改图，等一场温柔的改写</span>
+                </label>
+                <img id="targetPreviewImage" alt="修改预览" />
+              </div>
             </div>
             <label class="field">
               <span>情话提示词</span>

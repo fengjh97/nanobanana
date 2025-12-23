@@ -47,6 +47,15 @@ const countValue = document.getElementById("countValue");
 const ratioRowPortrait = document.getElementById("ratioRowPortrait");
 const ratioRowLandscape = document.getElementById("ratioRowLandscape");
 const autoRatioControl = document.getElementById("autoRatioButton");
+const styleImageInput = document.getElementById("styleImageInput");
+const targetImageInput = document.getElementById("targetImageInput");
+const stylePreviewImage = document.getElementById("stylePreviewImage");
+const targetPreviewImage = document.getElementById("targetPreviewImage");
+const stylePromptInput = document.getElementById("stylePromptInput");
+const styleCountRange = document.getElementById("styleCountRange");
+const styleCountValue = document.getElementById("styleCountValue");
+const styleGenerateBtn = document.getElementById("styleGenerateBtn");
+const styleStatusText = document.getElementById("styleStatusText");
 const loveNoteText = document.getElementById("loveNoteText");
 const progressBar = document.getElementById("progressBar");
 const countdownText = document.getElementById("countdownText");
@@ -58,8 +67,8 @@ let camera;
 let petals = [];
 let animationId;
 let petalBoost = 1;
-let autoRatioValue = "9:16";
-let selectedRatio = "9:16";
+let autoRatioValue = "1:1";
+let selectedRatio = "auto";
 let loveNoteIndex = 0;
 
 const loveNotes = [
@@ -241,6 +250,37 @@ function updatePreview(file) {
   reader.readAsDataURL(file);
 }
 
+function updateStylePreview(file, imageEl) {
+  if (!file) {
+    imageEl.style.display = "none";
+    imageEl.src = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    imageEl.src = reader.result;
+    imageEl.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+function resolveNearestRatioFromFile(file) {
+  return new Promise((resolve) => {
+    if (!file) {
+      resolve(autoRatioValue);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        resolve(pickNearestRatio(image.width, image.height));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function renderPlaceholders() {
   resultGrid.innerHTML = "";
   for (let i = 0; i < 3; i += 1) {
@@ -333,7 +373,8 @@ async function generateImages() {
     formData.append("target", "1");
     formData.append("template", template);
     const chosenRatio =
-      autoRatioControl && autoRatioControl.classList.contains("active")
+      selectedRatio === "auto" ||
+      (autoRatioControl && autoRatioControl.classList.contains("active"))
         ? autoRatioValue
         : selectedRatio || autoRatioValue;
     formData.append("ratio", chosenRatio);
@@ -390,16 +431,95 @@ async function generateImages() {
   }
 }
 
+async function generateStyleImages() {
+  const styleFile = styleImageInput.files[0];
+  const targetFile = targetImageInput.files[0];
+  if (!styleFile || !targetFile) {
+    styleStatusText.textContent = "请上传风格参考图和待修改图。";
+    return;
+  }
+
+  const promptText = stylePromptInput.value.trim();
+  if (!promptText) {
+    styleStatusText.textContent = "请输入风格提示词。";
+    return;
+  }
+
+  const total = Number.parseInt(styleCountRange.value, 10);
+  styleStatusText.textContent = "生成中，请稍等...";
+
+  const targetRatio = await resolveNearestRatioFromFile(targetFile);
+
+  resultGrid.innerHTML = "";
+  const slots = Array.from({ length: total }, (_, index) => {
+    const wrap = document.createElement("div");
+    wrap.className = "result-image";
+    wrap.textContent = `生成中 ${index + 1}`;
+    resultGrid.appendChild(wrap);
+    return wrap;
+  });
+
+  for (let i = 0; i < total; i += 1) {
+    const formData = new FormData();
+    formData.append("prompt", promptText);
+    formData.append("image", targetFile);
+    formData.append("style_image", styleFile);
+    formData.append("target", "1");
+    formData.append("ratio", targetRatio);
+
+    try {
+      boostPetals(true);
+      const response = await fetch("/generate", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      boostPetals(false);
+      if (!response.ok) {
+        styleStatusText.textContent = data.error || "生成失败。";
+        slots[i].textContent = "失败";
+        break;
+      }
+
+      const image = document.createElement("img");
+      image.alt = `结果 ${i + 1}`;
+      image.src = `data:image/png;base64,${data.images[0]}`;
+      slots[i].textContent = "";
+      slots[i].appendChild(image);
+      styleStatusText.textContent = `已生成 ${i + 1} / ${total}`;
+    } catch (error) {
+      slots[i].textContent = "失败";
+      styleStatusText.textContent = "请求失败，请检查后端服务。";
+      break;
+    }
+  }
+
+  if (styleStatusText.textContent.startsWith("已生成")) {
+    styleStatusText.textContent = "完成。";
+  }
+}
+
 imageInput.addEventListener("change", (event) => {
   updatePreview(event.target.files[0]);
 });
+styleImageInput.addEventListener("change", (event) => {
+  updateStylePreview(event.target.files[0], stylePreviewImage);
+});
+targetImageInput.addEventListener("change", (event) => {
+  updateStylePreview(event.target.files[0], targetPreviewImage);
+});
 
 generateBtn.addEventListener("click", generateImages);
+styleGenerateBtn.addEventListener("click", generateStyleImages);
 window.addEventListener("resize", resizeThree);
 
 countRange.addEventListener("input", () => {
   countValue.textContent = countRange.value;
   generateBtn.textContent = `为静闻生成 ${countRange.value} 张惊喜`;
+});
+
+styleCountRange.addEventListener("input", () => {
+  styleCountValue.textContent = styleCountRange.value;
 });
 
 renderTemplateOptions();
@@ -414,5 +534,7 @@ if (autoRatioControl) {
       node.classList.remove("active");
     });
     autoRatioControl.classList.add("active");
+    selectedRatio = "auto";
   });
+  autoRatioControl.classList.add("active");
 }

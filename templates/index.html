@@ -99,6 +99,55 @@
           </div>
         </section>
       </main>
+
+      <section class="panel accordion">
+        <details id="styleSection">
+          <summary>风格模仿模式（参考图 + 修改图）</summary>
+          <div class="accordion-body">
+            <div class="style-grid">
+              <label class="drop small" for="styleImageInput">
+                <input id="styleImageInput" type="file" accept="image/*" />
+                <span>上传风格参考图</span>
+              </label>
+              <label class="drop small" for="targetImageInput">
+                <input id="targetImageInput" type="file" accept="image/*" />
+                <span>上传待修改图</span>
+              </label>
+            </div>
+            <div class="style-preview">
+              <img id="stylePreviewImage" alt="风格预览" />
+              <img id="targetPreviewImage" alt="修改预览" />
+            </div>
+            <label class="field">
+              <span>风格提示词</span>
+              <textarea
+                id="stylePromptInput"
+                placeholder="描述你想把修改图变成的风格"
+                rows="4"
+              ></textarea>
+            </label>
+            <label class="field">
+              <span>生成数量</span>
+              <div class="count-control">
+                <input
+                  id="styleCountRange"
+                  type="range"
+                  min="1"
+                  max="6"
+                  step="1"
+                  value="3"
+                />
+                <div class="count-value">
+                  <span id="styleCountValue">3</span>
+                  <span>张</span>
+                </div>
+              </div>
+            </label>
+            <button id="styleGenerateBtn">开始生成</button>
+            <p class="note" id="styleStatusText"></p>
+          </div>
+        </details>
+      </section>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>

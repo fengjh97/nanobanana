@@ -293,14 +293,22 @@ def generate():
         return jsonify({"error": "Image is empty."}), 400
 
     image_part = make_image_part(image_bytes, file.mimetype or "image/png")
+    style_file = request.files.get("style_image")
+    style_part = None
+    if style_file and style_file.filename:
+        style_bytes = style_file.read()
+        if style_bytes:
+            style_part = make_image_part(
+                style_bytes,
+                style_file.mimetype or "image/png",
+            )
     text_part = make_text_part(prompt)
 
-    contents = [
-        types.Content(
-            role="user",
-            parts=[image_part, text_part],
-        )
-    ]
+    parts = [image_part, text_part]
+    if style_part:
+        parts = [style_part, image_part, text_part]
+
+    contents = [types.Content(role="user", parts=parts)]
 
     client = get_client()
     aspect_ratio = (request.form.get("ratio") or "9:16").strip()

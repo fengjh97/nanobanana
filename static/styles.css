@@ -120,6 +120,10 @@ body {
   background: linear-gradient(140deg, #fff6e8, #fff);
 }
 
+.drop.small {
+  padding: 16px;
+}
+
 .drop input {
   display: none;
 }
@@ -382,6 +386,40 @@ button:hover {
   padding: 10px 8px;
   border-bottom: 1px solid #f0e2d6;
   vertical-align: top;
+}
+
+.accordion summary {
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-body {
+  margin-top: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.style-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.style-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.style-preview img {
+  width: 100%;
+  border-radius: 16px;
+  display: none;
 }
 
 @media (max-width: 768px) {

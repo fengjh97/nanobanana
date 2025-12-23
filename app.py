@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 import sqlite3
+from typing import Optional
 
 from flask import (
     Flask,
@@ -18,6 +19,7 @@ from flask import (
 from google import genai
 from google.genai import types
 from google.genai import errors
+from supabase import Client, create_client
 
 
 def load_env_file(path: Path) -> None:
@@ -63,6 +65,63 @@ def init_db() -> None:
 
 
 init_db()
+
+
+def get_supabase_client() -> Optional[Client]:
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        return None
+    return create_client(url, key)
+
+
+def upload_to_supabase(bucket: str, filename: str, content: bytes, mime_type: str) -> str:
+    client = get_supabase_client()
+    if not client:
+        raise RuntimeError("Supabase is not configured.")
+    storage = client.storage.from_(bucket)
+    storage.upload(
+        filename,
+        content,
+        file_options={"content-type": mime_type, "x-upsert": "true"},
+    )
+    public_url = storage.get_public_url(filename)
+    return public_url
+
+
+def save_generation_record(
+    prompt: str,
+    template: str,
+    ratio: str,
+    input_ref: str,
+    output_ref: str,
+) -> None:
+    client = get_supabase_client()
+    if client:
+        client.table("generations").insert(
+            {
+                "prompt": prompt,
+                "template": template,
+                "ratio": ratio,
+                "input_ref": input_ref,
+                "output_ref": output_ref,
+            }
+        ).execute()
+        return
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT INTO generations (created_at, prompt, template, ratio, input_path, output_path) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                datetime.utcnow().isoformat(timespec="seconds"),
+                prompt,
+                template,
+                ratio,
+                input_ref,
+                output_ref,
+            ),
+        )
+        conn.commit()
 
 
 def get_client() -> genai.Client:
@@ -175,11 +234,31 @@ def logout():
 def admin():
     if not session.get("authenticated"):
         return redirect(url_for("login"))
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            "SELECT id, created_at, prompt, template, ratio, input_path, output_path "
-            "FROM generations ORDER BY id DESC"
-        ).fetchall()
+    client = get_supabase_client()
+    if client:
+        response = (
+            client.table("generations")
+            .select("created_at,prompt,template,ratio,input_ref,output_ref")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        rows = [
+            (
+                item.get("created_at"),
+                item.get("prompt"),
+                item.get("template"),
+                item.get("ratio"),
+                item.get("input_ref"),
+                item.get("output_ref"),
+            )
+            for item in (response.data or [])
+        ]
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
+            rows = conn.execute(
+                "SELECT created_at, prompt, template, ratio, input_path, output_path "
+                "FROM generations ORDER BY id DESC"
+            ).fetchall()
     return render_template("admin.html", rows=rows)
 
 
@@ -253,26 +332,44 @@ def generate():
         return jsonify({"error": error_message, "text": text_response}), 502
 
     timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S-%f")
-    input_path = INPUT_DIR / f"{timestamp}.bin"
-    input_path.write_bytes(image_bytes)
+    input_filename = f"{timestamp}-input"
+    output_filename = f"{timestamp}-output.png"
 
-    output_path = OUTPUT_DIR / f"{timestamp}.png"
-    output_path.write_bytes(base64.b64decode(images[0]))
+    input_ref = ""
+    output_ref = ""
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO generations (created_at, prompt, template, ratio, input_path, output_path) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                datetime.utcnow().isoformat(timespec="seconds"),
-                prompt,
-                template_value,
-                aspect_ratio,
-                str(input_path.relative_to(BASE_DIR)),
-                str(output_path.relative_to(BASE_DIR)),
-            ),
+    client = get_supabase_client()
+    if client:
+        input_bucket = os.getenv("SUPABASE_BUCKET_INPUTS", "nanobanana-inputs")
+        output_bucket = os.getenv("SUPABASE_BUCKET_OUTPUTS", "nanobanana-outputs")
+        input_mime = file.mimetype or "application/octet-stream"
+        input_ref = upload_to_supabase(
+            input_bucket,
+            input_filename,
+            image_bytes,
+            input_mime,
         )
-        conn.commit()
+        output_ref = upload_to_supabase(
+            output_bucket,
+            output_filename,
+            base64.b64decode(images[0]),
+            "image/png",
+        )
+    else:
+        input_path = INPUT_DIR / f"{timestamp}.bin"
+        input_path.write_bytes(image_bytes)
+        output_path = OUTPUT_DIR / f"{timestamp}.png"
+        output_path.write_bytes(base64.b64decode(images[0]))
+        input_ref = str(input_path.relative_to(BASE_DIR))
+        output_ref = str(output_path.relative_to(BASE_DIR))
+
+    save_generation_record(
+        prompt=prompt,
+        template=template_value,
+        ratio=aspect_ratio,
+        input_ref=input_ref,
+        output_ref=output_ref,
+    )
 
     return jsonify({"images": images[:1], "text": text_response})
 

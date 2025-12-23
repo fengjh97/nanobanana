@@ -36,12 +36,24 @@
           <tbody>
             {% for row in rows %}
             <tr>
+              <td>{{ row[0] }}</td>
               <td>{{ row[1] }}</td>
               <td>{{ row[2] }}</td>
               <td>{{ row[3] }}</td>
-              <td>{{ row[4] }}</td>
-              <td>{{ row[5] }}</td>
-              <td>{{ row[6] }}</td>
+              <td>
+                {% if row[4].startswith('http') %}
+                <a href="{{ row[4] }}" target="_blank">打开</a>
+                {% else %}
+                {{ row[4] }}
+                {% endif %}
+              </td>
+              <td>
+                {% if row[5].startswith('http') %}
+                <a href="{{ row[5] }}" target="_blank">打开</a>
+                {% else %}
+                {{ row[5] }}
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>

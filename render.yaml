@@ -1,0 +1,31 @@
+# Exported from Render on 2026-01-28T10:07:10Z
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: nanobanana
+      runtime: python
+      repo: https://github.com/fengjh97/nanobanana
+      plan: free
+      envVars:
+      - key: SUPABASE_BUCKET_OUTPUTS
+        sync: false
+      - key: SUPABASE_BUCKET_INPUTS
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: FLASK_SECRET
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      region: oregon
+      buildCommand: pip install -r requirements.txt
+      startCommand: python app.py
+      autoDeployTrigger: commit

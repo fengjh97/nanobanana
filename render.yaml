@@ -1,31 +1,31 @@
-# Exported from Render on 2026-01-28T10:07:10Z
-version: "1"
-projects:
-- name: My project
-  environments:
-  - name: Production
-    services:
-    - type: web
-      name: nanobanana
-      runtime: python
-      repo: https://github.com/fengjh97/nanobanana
-      plan: free
-      envVars:
-      - key: SUPABASE_BUCKET_OUTPUTS
-        sync: false
-      - key: SUPABASE_BUCKET_INPUTS
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
+# Render Blueprint 配置文件
+# 使用方法: 在 GitHub 仓库中添加此文件，然后通过 Render Dashboard 使用 "New Blueprint Instance" 部署
+# 或者访问: https://render.com/deploy?repo=https://github.com/fengjh97/nanobanana
+
+services:
+  - type: web
+    name: nanobanana
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      # 必需的环境变量
       - key: GOOGLE_API_KEY
-        sync: false
-      - key: FLASK_SECRET
         sync: false
       - key: APP_PASSWORD
         sync: false
-      region: oregon
-      buildCommand: pip install -r requirements.txt
-      startCommand: python app.py
-      autoDeployTrigger: commit
+      - key: FLASK_SECRET
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11.4"
+      # 可选的 Supabase 环境变量 (如果不使用 Supabase，应用会使用本地 SQLite 存储)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET_INPUTS
+        value: nanobanana-inputs
+      - key: SUPABASE_BUCKET_OUTPUTS
+        value: nanobanana-outputs

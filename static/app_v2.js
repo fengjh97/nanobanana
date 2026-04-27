@@ -1,26 +1,30 @@
-const API_KEY_STORAGE = "nanobanana_google_api_key";
-const GEMINI_MODEL = "gemini-3-pro-image-preview";
-const GEMINI_ENDPOINT = (apiKey) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+const TOKEN_STORAGE = "nanobanana_token";
 
-function getApiKey() {
+function getToken() {
   try {
-    return localStorage.getItem(API_KEY_STORAGE) || "";
+    return localStorage.getItem(TOKEN_STORAGE) || "";
   } catch (_) {
     return "";
   }
 }
 
-function setApiKey(key) {
+function setToken(token) {
   try {
-    if (key) {
-      localStorage.setItem(API_KEY_STORAGE, key);
-    } else {
-      localStorage.removeItem(API_KEY_STORAGE);
-    }
+    if (token) localStorage.setItem(TOKEN_STORAGE, token);
+    else localStorage.removeItem(TOKEN_STORAGE);
   } catch (_) {
     /* ignore */
   }
+}
+
+// Treat any presence of token as "logged in"; backend re-verifies on each call,
+// so a stale token cleanly turns into a 401 → forced re-login.
+function getApiKey() {
+  return getToken();
+}
+
+function setApiKey(t) {
+  setToken(t);
 }
 
 function fileToBase64(file) {
@@ -36,62 +40,38 @@ function fileToBase64(file) {
   });
 }
 
-async function callGemini({ parts, aspectRatio, apiKey }) {
-  const body = {
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      temperature: 1,
-      topP: 0.95,
-      maxOutputTokens: 32768,
-      responseModalities: ["IMAGE"],
-      imageConfig: {
-        aspectRatio,
-        imageSize: "1K",
-      },
-    },
-    safetySettings: [
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
-    ],
-  };
+async function callGemini({ parts, aspectRatio }) {
+  const token = getToken();
+  if (!token) {
+    const err = new Error("not logged in");
+    err.status = 401;
+    throw err;
+  }
 
-  const response = await fetch(GEMINI_ENDPOINT(apiKey), {
+  const response = await fetch("/api/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ parts, aspectRatio }),
   });
 
   if (!response.ok) {
     let detail = "";
     try {
       const errBody = await response.json();
-      detail = errBody?.error?.message || JSON.stringify(errBody);
+      detail = errBody?.detail || errBody?.error || JSON.stringify(errBody);
     } catch (_) {
       detail = await response.text();
     }
-    const err = new Error(`Gemini ${response.status}: ${detail}`);
+    const err = new Error(`generate ${response.status}: ${detail}`);
     err.status = response.status;
     throw err;
   }
 
   const data = await response.json();
-  const images = [];
-  let text = "";
-  const candidates = data.candidates || [];
-  for (const candidate of candidates) {
-    const cParts = candidate?.content?.parts || [];
-    for (const part of cParts) {
-      const inline = part.inlineData || part.inline_data;
-      if (inline?.data) {
-        images.push(inline.data);
-      } else if (typeof part.text === "string") {
-        text += part.text;
-      }
-    }
-  }
-  return { images, text };
+  return { images: data.images || [], text: data.text || "" };
 }
 
 const templates = [
@@ -169,7 +149,6 @@ const loginForm = document.getElementById("loginForm");
 const loginPassword = document.getElementById("loginPassword");
 const loginSubmit = document.getElementById("loginSubmit");
 const loginStatus = document.getElementById("loginStatus");
-const loginSetupHint = document.getElementById("loginSetupHint");
 
 let renderer;
 let scene;
@@ -588,7 +567,6 @@ async function generateImages() {
 
     try {
       const { images, text } = await callGemini({
-        apiKey,
         aspectRatio: chosenRatio,
         parts: [
           { inlineData: { mimeType: imageMime, data: imageBase64 } },
@@ -696,7 +674,6 @@ async function generateStyleImages() {
 
     try {
       const { images } = await callGemini({
-        apiKey,
         aspectRatio: targetRatio,
         parts: [
           { inlineData: { mimeType: styleMime, data: styleBase64 } },
@@ -805,55 +782,10 @@ if (styleAutoRatioControl) {
   styleAutoRatioControl.classList.add("active");
 }
 
-function base64ToBytes(b64) {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decryptKey(blob, password) {
-  const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-  const aesKey = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: base64ToBytes(blob.salt),
-      iterations: blob.iters || 600000,
-      hash: "SHA-256",
-    },
-    baseKey,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64ToBytes(blob.iv) },
-    aesKey,
-    base64ToBytes(blob.ct)
-  );
-  return new TextDecoder().decode(plaintext);
-}
-
-function showLogin({ setupMissing = false } = {}) {
+function showLogin() {
   document.body.classList.add("locked");
   loginOverlay?.classList.remove("hidden");
-  if (setupMissing) {
-    loginSetupHint.hidden = false;
-    loginSubmit.disabled = true;
-    loginStatus.textContent = "尚未配置加密密钥。";
-  } else {
-    loginSetupHint.hidden = true;
-    loginSubmit.disabled = false;
-  }
+  loginSubmit.disabled = false;
   setTimeout(() => loginPassword?.focus(), 50);
 }
 
@@ -863,60 +795,60 @@ function hideLogin() {
   if (logoutBtn) logoutBtn.hidden = false;
 }
 
-let cachedEncryptedBlob = null;
-async function fetchEncryptedBlob() {
-  if (cachedEncryptedBlob) return cachedEncryptedBlob;
-  const res = await fetch("./key.enc.json", { cache: "no-cache" });
-  if (!res.ok) throw new Error("missing");
-  const blob = await res.json();
-  if (!blob.salt || !blob.iv || !blob.ct) throw new Error("invalid blob");
-  cachedEncryptedBlob = blob;
-  return blob;
-}
-
-async function bootAuth() {
-  if (getApiKey()) {
-    hideLogin();
-    return;
-  }
-  try {
-    await fetchEncryptedBlob();
-  } catch (_) {
-    showLogin({ setupMissing: true });
-    return;
-  }
-  showLogin();
+function bootAuth() {
+  if (getToken()) hideLogin();
+  else showLogin();
 }
 
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const pw = loginPassword.value;
-    if (!pw) return;
+    const pin = loginPassword.value.trim();
+    if (!pin) return;
     loginSubmit.disabled = true;
-    loginStatus.textContent = "解密中...";
+    loginStatus.textContent = "登录中...";
     try {
-      const blob = await fetchEncryptedBlob();
-      const apiKey = await decryptKey(blob, pw);
-      if (!apiKey || !apiKey.startsWith("AIza")) {
-        throw new Error("decoded value is not an API key");
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 423) {
+        const minutes = Math.ceil((data.retry_after || 1800) / 60);
+        loginStatus.textContent = `已锁定，约 ${minutes} 分钟后再试。`;
+        loginSubmit.disabled = true;
+        return;
       }
-      setApiKey(apiKey);
+      if (res.status === 401) {
+        const left = typeof data.attempts_left === "number" ? data.attempts_left : "?";
+        loginStatus.textContent = `PIN 错误，还剩 ${left} 次。`;
+        loginPassword.value = "";
+        loginSubmit.disabled = false;
+        setTimeout(() => loginPassword?.focus(), 50);
+        return;
+      }
+      if (!res.ok || !data.token) {
+        loginStatus.textContent = data.error || "服务异常。";
+        loginSubmit.disabled = false;
+        return;
+      }
+
+      setToken(data.token);
       loginStatus.textContent = "进入...";
       loginPassword.value = "";
       hideLogin();
     } catch (err) {
-      loginStatus.textContent = "密码错误。";
-      loginPassword.value = "";
+      loginStatus.textContent = "网络错误。";
       loginSubmit.disabled = false;
-      setTimeout(() => loginPassword?.focus(), 50);
     }
   });
 }
 
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
-    setApiKey("");
+    setToken("");
     location.reload();
   });
 }

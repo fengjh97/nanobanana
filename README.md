@@ -1,55 +1,88 @@
 # 静闻的光影花园 · nanobanana
 
-纯前端 Gemini 图片编辑站，部署在 GitHub Pages。Google API key 用密码加密后放在仓库里，访问需要先登录。
+Cloudflare Pages 版本：4 位 PIN 登录 + 服务端锁定 + Gemini 调用走 Pages Functions（API key 永远不下发到浏览器）。
 
-## 工作原理
+## 架构
 
-- `key.enc.json` = 用密码 PBKDF2-SHA256 (60 万轮) + AES-256-GCM 加密后的 API key
-- 主页是登录页，输入密码 → 浏览器本地解密 → 解出来的 key 缓存到 localStorage
-- 之后同一浏览器免登录直接进；换浏览器/清缓存只用再输一次密码
-- 任何人看仓库源码都只能看到密文，没有密码暴破不出来（密码够强的前提下）
+```
+浏览器 ──── PIN ────► /api/login (Pages Function)
+                       │
+                       │ 验 PIN，KV 计数，错 10 次锁 30 分钟
+                       │ 通过则签 HMAC token (12h)
+                       ▼
+浏览器 ◄── token ──────┘
+浏览器 ──── token + image + prompt ────► /api/generate (Pages Function)
+                                         │
+                                         │ 验 token
+                                         │ 用 GEMINI_API_KEY 调 generativelanguage.googleapis.com
+                                         ▼
+浏览器 ◄── 生成的图片 ──────────────────┘
+```
 
-## 部署 / 重新加密
-
-第一次使用 或 想换密码 / 换 key 时：
-
-1. 打开 `https://fengjh97.github.io/nanobanana/setup.html`
-2. 输入 Google API key + 密码（**至少 16 位**或长 passphrase）
-3. 点"生成密文" → 把生成的 JSON **完整覆盖**到仓库根目录的 `key.enc.json`
-4. commit + push → 等 Pages 重建（一两分钟）
-5. 访问 `https://fengjh97.github.io/nanobanana/` → 输密码登录
-
-setup 页面所有计算都在浏览器里完成，明文 key 和密码不会通过网络发出。
+仓库里**没有任何明文 / 密文 key**。`GEMINI_API_KEY`、`PIN`、`TOKEN_SECRET` 都是 Cloudflare Pages 的环境变量，只在边缘 Function 里能读到。
 
 ## 文件结构
 
 ```
 .
-├── index.html           主页（登录后才能用）
-├── setup.html           本地生成密文的工具页
-├── key.enc.json         加密后的 API key（必须存在主页才能登录）
+├── index.html
 ├── static/
-│   ├── app_v2.js        登录 + 解密 + Gemini 调用
+│   ├── app_v2.js          登录 + 调用 /api/* 的前端逻辑
 │   ├── styles.css
 │   ├── logo.png
 │   └── favicon.svg
+├── functions/             Cloudflare Pages Functions
+│   ├── _shared.js         token 签名/验证、锁定 KV、JSON 响应
+│   └── api/
+│       ├── login.js       POST /api/login → 验 PIN，签 token
+│       └── generate.js    POST /api/generate → 验 token，转发 Gemini
 ├── .nojekyll
 └── README.md
 ```
 
-## 安全限制
+## 部署到 Cloudflare Pages（首次）
 
-- **密码强度直接决定安全。**密文是公开的，弱密码会被离线暴破。
-- 想"撤销"已经登录的设备：只能换密码（重新跑 setup → 覆盖 `key.enc.json`），但已经在别的设备 localStorage 里缓存的 key 仍然能用，直到那台设备清缓存或你自己到 aistudio 吊销 Google key。
-- 仓库当前是 public：源码、密文、commit 历史所有人可见。
+1. 登录 https://dash.cloudflare.com
+2. **Workers & Pages → Create → Pages → Connect to Git**
+3. 选 `fengjh97/nanobanana`，分支选 `main`
+4. Build settings：
+   - Framework preset: `None`
+   - Build command: 留空
+   - Build output directory: `/`
+5. **Save and Deploy**（第一次会失败或部分功能不可用，因为环境变量还没配）
 
-## 本地预览
+### 配置环境变量 + KV
+
+在 Pages 项目的 **Settings → Environment variables** 加：
+
+| 变量 | 值 |
+|---|---|
+| `GEMINI_API_KEY` | 你的 Google AI Studio key |
+| `PIN` | 你想要的 4 位数字（比如 `1234`） |
+| `TOKEN_SECRET` | 任意 32+ 位随机字符串 |
+
+在 **Workers & Pages → KV** 创建一个 namespace 叫 `nanobanana_lockout`，然后到 Pages 项目的 **Settings → Functions → KV namespace bindings** 绑定：
+
+| Variable name | KV namespace |
+|---|---|
+| `LOCKOUT_KV` | `nanobanana_lockout` |
+
+绑完触发一次 redeploy（push 任意小改动，或在 Deployments 里 Retry）。
+
+## 锁定策略
+
+- 错 10 次 PIN → 423 Locked，30 分钟后自动解锁
+- 锁定状态存 KV，单 key `login_state`
+- 30 分钟无错误自然失效（KV TTL）
+
+## Token 失效
+
+- HMAC-SHA256 签名，TTL 12 小时
+- 过期或被篡改 → /api/generate 返回 401 → 前端自动清 localStorage 重新登录
+
+## 本地开发（可选）
 
 ```bash
-python3 -m http.server 8000
-# 浏览器打开 http://localhost:8000
+npm i -g wrangler
+wrangler pages dev . --kv LOCKOUT_KV --binding GEMINI_API_KEY=xxx --binding PIN=1234 --binding TOKEN_SECRET=yyy
 ```
-
-## 用到的模型
-
-`gemini-3-pro-image-preview`，浏览器直接调用 `generativelanguage.googleapis.com`。

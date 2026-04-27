@@ -4,18 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>静闻的光影花园</title>
-    <link rel="icon" href="/static/logo.png" type="image/png" />
-    <link rel="apple-touch-icon" href="/static/logo.png" />
+    <link rel="icon" href="./static/logo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="./static/logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Marcellus&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="./static/styles.css" />
   </head>
   <body>
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <button id="settingsBtn" class="settings-btn" type="button" aria-label="设置 API Key">
+      ⚙ API Key
+    </button>
     <div class="page">
       <header class="hero">
         <div class="hero-text">
@@ -176,7 +179,23 @@
 
     </div>
 
+    <div id="apiKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
+      <div class="modal-card">
+        <h3 id="apiKeyModalTitle">设置 Google AI Studio API Key</h3>
+        <p class="modal-desc">
+          这个站点是纯前端的，密钥只会保存在你这台浏览器的 localStorage，并直接从你的浏览器调用 Google 接口。
+          请到 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> 创建一个免费 key 后粘贴下方。
+        </p>
+        <input id="apiKeyInput" type="password" placeholder="AIzaSy..." autocomplete="off" spellcheck="false" />
+        <div class="modal-actions">
+          <button id="apiKeyClearBtn" type="button" class="ghost">清除</button>
+          <button id="apiKeySaveBtn" type="button">保存</button>
+        </div>
+        <p id="apiKeyStatus" class="modal-status"></p>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="/static/app_v2.js"></script>
+    <script src="./static/app_v2.js"></script>
   </body>
 </html>

@@ -1,3 +1,99 @@
+const API_KEY_STORAGE = "nanobanana_google_api_key";
+const GEMINI_MODEL = "gemini-3-pro-image-preview";
+const GEMINI_ENDPOINT = (apiKey) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+function getApiKey() {
+  try {
+    return localStorage.getItem(API_KEY_STORAGE) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function setApiKey(key) {
+  try {
+    if (key) {
+      localStorage.setItem(API_KEY_STORAGE, key);
+    } else {
+      localStorage.removeItem(API_KEY_STORAGE);
+    }
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function callGemini({ parts, aspectRatio, apiKey }) {
+  const body = {
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      temperature: 1,
+      topP: 0.95,
+      maxOutputTokens: 32768,
+      responseModalities: ["IMAGE"],
+      imageConfig: {
+        aspectRatio,
+        imageSize: "1K",
+      },
+    },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
+    ],
+  };
+
+  const response = await fetch(GEMINI_ENDPOINT(apiKey), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const errBody = await response.json();
+      detail = errBody?.error?.message || JSON.stringify(errBody);
+    } catch (_) {
+      detail = await response.text();
+    }
+    const err = new Error(`Gemini ${response.status}: ${detail}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  const data = await response.json();
+  const images = [];
+  let text = "";
+  const candidates = data.candidates || [];
+  for (const candidate of candidates) {
+    const cParts = candidate?.content?.parts || [];
+    for (const part of cParts) {
+      const inline = part.inlineData || part.inline_data;
+      if (inline?.data) {
+        images.push(inline.data);
+      } else if (typeof part.text === "string") {
+        text += part.text;
+      }
+    }
+  }
+  return { images, text };
+}
+
 const templates = [
   {
     name: "不使用模板",
@@ -67,6 +163,12 @@ const loveNoteText = document.getElementById("loveNoteText");
 const progressBar = document.getElementById("progressBar");
 const countdownText = document.getElementById("countdownText");
 const canvas = document.getElementById("hero-canvas");
+const settingsBtn = document.getElementById("settingsBtn");
+const apiKeyModal = document.getElementById("apiKeyModal");
+const apiKeyInput = document.getElementById("apiKeyInput");
+const apiKeySaveBtn = document.getElementById("apiKeySaveBtn");
+const apiKeyClearBtn = document.getElementById("apiKeyClearBtn");
+const apiKeyStatus = document.getElementById("apiKeyStatus");
 
 let renderer;
 let scene;
@@ -361,7 +463,7 @@ function resolveNearestRatioFromFile(file) {
   });
 }
 function renderPlaceholders() {
-  resultGrid.innerHTML = "";
+  resultGrid.replaceChildren();
   for (let i = 0; i < 3; i += 1) {
     const box = document.createElement("div");
     box.className = "placeholder";
@@ -416,6 +518,13 @@ function boostPetals(active) {
 }
 
 async function generateImages() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    statusText.textContent = "请先点右上角 ⚙ API Key 设置 Google 密钥。";
+    openApiKeyModal();
+    return;
+  }
+
   const file = imageInput.files[0];
   if (!file) {
     statusText.textContent = "请先上传图片。";
@@ -439,9 +548,11 @@ async function generateImages() {
   const template = activeTemplate
     ? templates.find((item) => item.name === activeTemplate.textContent)?.value
     : "";
-  const finalPrompt = `${basePrompt}\n\n修正模板: ${template}`;
+  const finalPrompt = template ? `${basePrompt}\n\n修正模板: ${template}` : basePrompt;
+  const imageBase64 = await fileToBase64(file);
+  const imageMime = file.type || "image/png";
 
-  resultGrid.innerHTML = "";
+  resultGrid.replaceChildren();
   const slots = Array.from({ length: total }, (_, index) => {
     const wrap = document.createElement("div");
     wrap.className = "result-image";
@@ -451,62 +562,65 @@ async function generateImages() {
   });
 
   let lastText = "";
+  const chosenRatio =
+    selectedRatio === "auto" ||
+    (autoRatioControl && autoRatioControl.classList.contains("active"))
+      ? autoRatioValue
+      : selectedRatio || autoRatioValue;
 
   for (let i = 0; i < total; i += 1) {
-    const formData = new FormData();
-    formData.append("prompt", finalPrompt);
-    formData.append("image", file);
-    formData.append("target", "1");
-    formData.append("template", template);
-    const chosenRatio =
-      selectedRatio === "auto" ||
-      (autoRatioControl && autoRatioControl.classList.contains("active"))
-        ? autoRatioValue
-        : selectedRatio || autoRatioValue;
-    formData.append("ratio", chosenRatio);
+    boostPetals(true);
+    const targetSeconds = 30;
+    let secondsLeft = targetSeconds;
+    setProgress(0, secondsLeft);
+    const countdownTimer = setInterval(() => {
+      secondsLeft -= 1;
+      const percent = Math.min(
+        100,
+        ((targetSeconds - secondsLeft) / targetSeconds) * 100
+      );
+      setProgress(percent, secondsLeft);
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer);
+      }
+    }, 1000);
 
     try {
-      boostPetals(true);
-      const targetSeconds = 30;
-      let secondsLeft = targetSeconds;
-      setProgress(0, secondsLeft);
-      const countdownTimer = setInterval(() => {
-        secondsLeft -= 1;
-        const percent = Math.min(
-          100,
-          ((targetSeconds - secondsLeft) / targetSeconds) * 100
-        );
-        setProgress(percent, secondsLeft);
-        if (secondsLeft <= 0) {
-          clearInterval(countdownTimer);
-        }
-      }, 1000);
-
-      const response = await fetch("/generate", {
-        method: "POST",
-        body: formData,
+      const { images, text } = await callGemini({
+        apiKey,
+        aspectRatio: chosenRatio,
+        parts: [
+          { inlineData: { mimeType: imageMime, data: imageBase64 } },
+          { text: finalPrompt },
+        ],
       });
-      const data = await response.json();
       clearInterval(countdownTimer);
       setProgress(100, 0);
       boostPetals(false);
-      if (!response.ok) {
-        statusText.textContent = data.error || "生成失败。";
+
+      if (!images.length) {
+        statusText.textContent = text ? `模型只返回文字: ${text.slice(0, 80)}` : "未返回图片。";
         slots[i].textContent = "失败";
         break;
       }
 
-      lastText = data.text || lastText;
+      lastText = text || lastText;
       const image = document.createElement("img");
       image.alt = `结果 ${i + 1}`;
-      image.src = `data:image/png;base64,${data.images[0]}`;
+      image.src = `data:image/png;base64,${images[0]}`;
       slots[i].textContent = "";
       slots[i].appendChild(image);
       statusText.textContent = `已生成 ${i + 1} / ${total}`;
       outputText.textContent = lastText ? lastText.slice(0, 120) : "";
     } catch (error) {
+      clearInterval(countdownTimer);
+      boostPetals(false);
       slots[i].textContent = "失败";
-      statusText.textContent = "请求失败，请检查后端服务。";
+      statusText.textContent = error?.message || "请求失败。";
+      if (error?.status === 401 || error?.status === 403) {
+        statusText.textContent = "API Key 无效或被拒绝，请重新设置。";
+        openApiKeyModal();
+      }
       break;
     }
   }
@@ -518,6 +632,13 @@ async function generateImages() {
 }
 
 async function generateStyleImages() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    styleStatusText.textContent = "请先点右上角 ⚙ API Key 设置 Google 密钥。";
+    openApiKeyModal();
+    return;
+  }
+
   const styleFile = styleImageInput.files[0];
   const targetFile = targetImageInput.files[0];
   if (!styleFile || !targetFile) {
@@ -540,7 +661,12 @@ async function generateStyleImages() {
       ? styleAutoRatioValue
       : styleSelectedRatio || styleAutoRatioValue;
 
-  resultGrid.innerHTML = "";
+  const styleBase64 = await fileToBase64(styleFile);
+  const targetBase64 = await fileToBase64(targetFile);
+  const styleMime = styleFile.type || "image/png";
+  const targetMime = targetFile.type || "image/png";
+
+  resultGrid.replaceChildren();
   const slots = Array.from({ length: total }, (_, index) => {
     const wrap = document.createElement("div");
     wrap.className = "result-image";
@@ -550,53 +676,57 @@ async function generateStyleImages() {
   });
 
   for (let i = 0; i < total; i += 1) {
-    const formData = new FormData();
-    formData.append("prompt", promptText);
-    formData.append("image", targetFile);
-    formData.append("style_image", styleFile);
-    formData.append("target", "1");
-    formData.append("ratio", targetRatio);
+    boostPetals(true);
+    const targetSeconds = 30;
+    let secondsLeft = targetSeconds;
+    setStyleProgress(0, secondsLeft);
+    const countdownTimer = setInterval(() => {
+      secondsLeft -= 1;
+      const percent = Math.min(
+        100,
+        ((targetSeconds - secondsLeft) / targetSeconds) * 100
+      );
+      setStyleProgress(percent, secondsLeft);
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer);
+      }
+    }, 1000);
 
     try {
-      boostPetals(true);
-      const targetSeconds = 30;
-      let secondsLeft = targetSeconds;
-      setStyleProgress(0, secondsLeft);
-      const countdownTimer = setInterval(() => {
-        secondsLeft -= 1;
-        const percent = Math.min(
-          100,
-          ((targetSeconds - secondsLeft) / targetSeconds) * 100
-        );
-        setStyleProgress(percent, secondsLeft);
-        if (secondsLeft <= 0) {
-          clearInterval(countdownTimer);
-        }
-      }, 1000);
-
-      const response = await fetch("/generate", {
-        method: "POST",
-        body: formData,
+      const { images } = await callGemini({
+        apiKey,
+        aspectRatio: targetRatio,
+        parts: [
+          { inlineData: { mimeType: styleMime, data: styleBase64 } },
+          { inlineData: { mimeType: targetMime, data: targetBase64 } },
+          { text: promptText },
+        ],
       });
-      const data = await response.json();
       clearInterval(countdownTimer);
       setStyleProgress(100, 0);
       boostPetals(false);
-      if (!response.ok) {
-        styleStatusText.textContent = data.error || "生成失败。";
+
+      if (!images.length) {
+        styleStatusText.textContent = "未返回图片。";
         slots[i].textContent = "失败";
         break;
       }
 
       const image = document.createElement("img");
       image.alt = `结果 ${i + 1}`;
-      image.src = `data:image/png;base64,${data.images[0]}`;
+      image.src = `data:image/png;base64,${images[0]}`;
       slots[i].textContent = "";
       slots[i].appendChild(image);
       styleStatusText.textContent = `已生成 ${i + 1} / ${total}`;
     } catch (error) {
+      clearInterval(countdownTimer);
+      boostPetals(false);
       slots[i].textContent = "失败";
-      styleStatusText.textContent = "请求失败，请检查后端服务。";
+      styleStatusText.textContent = error?.message || "请求失败。";
+      if (error?.status === 401 || error?.status === 403) {
+        styleStatusText.textContent = "API Key 无效或被拒绝，请重新设置。";
+        openApiKeyModal();
+      }
       break;
     }
   }
@@ -670,4 +800,63 @@ if (styleAutoRatioControl) {
     styleSelectedRatio = "auto";
   });
   styleAutoRatioControl.classList.add("active");
+}
+
+function openApiKeyModal() {
+  if (!apiKeyModal) return;
+  apiKeyInput.value = getApiKey();
+  apiKeyStatus.textContent = "";
+  apiKeyModal.classList.add("open");
+  setTimeout(() => apiKeyInput.focus(), 50);
+}
+
+function closeApiKeyModal() {
+  apiKeyModal?.classList.remove("open");
+}
+
+function refreshSettingsBtnLabel() {
+  if (!settingsBtn) return;
+  settingsBtn.textContent = getApiKey() ? "⚙ API Key" : "⚙ 设置 API Key";
+}
+
+if (settingsBtn) {
+  settingsBtn.addEventListener("click", openApiKeyModal);
+}
+
+if (apiKeyModal) {
+  apiKeyModal.addEventListener("click", (event) => {
+    if (event.target === apiKeyModal) closeApiKeyModal();
+  });
+}
+
+if (apiKeySaveBtn) {
+  apiKeySaveBtn.addEventListener("click", () => {
+    const value = (apiKeyInput.value || "").trim();
+    if (!value) {
+      apiKeyStatus.textContent = "请输入 key 后再保存。";
+      return;
+    }
+    setApiKey(value);
+    apiKeyStatus.textContent = "已保存到当前浏览器。";
+    refreshSettingsBtnLabel();
+    setTimeout(closeApiKeyModal, 600);
+  });
+}
+
+if (apiKeyClearBtn) {
+  apiKeyClearBtn.addEventListener("click", () => {
+    setApiKey("");
+    apiKeyInput.value = "";
+    apiKeyStatus.textContent = "已清除。";
+    refreshSettingsBtnLabel();
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeApiKeyModal();
+});
+
+refreshSettingsBtnLabel();
+if (!getApiKey()) {
+  openApiKeyModal();
 }

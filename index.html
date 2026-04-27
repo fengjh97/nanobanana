@@ -16,8 +16,18 @@
   </head>
   <body>
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
-    <button id="logoutBtn" class="settings-btn" type="button" aria-label="退出登录" hidden>
-      退出
+    <button id="logoutBtn" class="logout-mark" type="button" aria-label="退出登录" hidden>
+      <span class="logout-mark-text">退出</span>
+      <svg class="logout-mark-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
     </button>
     <div class="page">
       <header class="hero">
@@ -181,11 +191,16 @@
 
     <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
       <div class="login-card">
-        <div class="login-logo">
-          <img src="./static/logo.png" alt="" />
-        </div>
+        <svg class="login-ornament" viewBox="0 0 240 24" aria-hidden="true">
+          <line x1="0" y1="12" x2="92" y2="12" stroke="currentColor" stroke-width="0.7" />
+          <circle cx="108" cy="12" r="1.6" fill="none" stroke="currentColor" stroke-width="0.7" />
+          <circle cx="120" cy="12" r="3.6" fill="currentColor" />
+          <circle cx="132" cy="12" r="1.6" fill="none" stroke="currentColor" stroke-width="0.7" />
+          <line x1="148" y1="12" x2="240" y2="12" stroke="currentColor" stroke-width="0.7" />
+        </svg>
+        <p class="login-eyebrow">For 静闻 · Vertex Image Lab</p>
         <h2 id="loginTitle">静闻的光影花园</h2>
-        <p class="login-sub">输入 4 位 PIN 进入</p>
+        <p class="login-sub">轻轻按下，进入光与影的花园</p>
         <form id="loginForm" autocomplete="off">
           <input
             id="loginPassword"
@@ -193,14 +208,32 @@
             inputmode="numeric"
             pattern="[0-9]*"
             maxlength="8"
-            placeholder="••••"
+            placeholder="• • • •"
             autocomplete="off"
             autofocus
             required
           />
-          <button id="loginSubmit" type="submit">进入</button>
+          <button id="loginSubmit" type="submit">
+            <span>进入</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 12h14M13 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
         </form>
         <p id="loginStatus" class="login-status"></p>
+
+        <div class="login-letter">
+          <span class="login-letter-mark" aria-hidden="true">”</span>
+          <p id="loginLoveNote" class="login-love-note">我的第一个诺言：每次都把你放在心尖上。</p>
+          <span class="login-letter-stamp">— 给你</span>
+        </div>
       </div>
     </div>
 

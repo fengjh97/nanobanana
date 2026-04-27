@@ -782,10 +782,40 @@ if (styleAutoRatioControl) {
   styleAutoRatioControl.classList.add("active");
 }
 
+// === Login-page love note rotation (separate from main hero typing animation) ===
+const loginLoveNote = document.getElementById("loginLoveNote");
+let loginLoveNoteIdx = 0;
+let loginLoveNoteTimer = null;
+
+function showLoginLoveNote() {
+  if (!loginLoveNote) return;
+  loginLoveNote.classList.add("fading");
+  setTimeout(() => {
+    loginLoveNote.textContent = loveNotes[loginLoveNoteIdx];
+    loginLoveNoteIdx = (loginLoveNoteIdx + 1) % loveNotes.length;
+    loginLoveNote.classList.remove("fading");
+  }, 600);
+}
+
+function startLoginLoveNoteCycle() {
+  if (loginLoveNoteTimer || !loginLoveNote) return;
+  loginLoveNote.textContent = loveNotes[0];
+  loginLoveNoteIdx = 1;
+  loginLoveNoteTimer = setInterval(showLoginLoveNote, 5500);
+}
+
+function stopLoginLoveNoteCycle() {
+  if (loginLoveNoteTimer) {
+    clearInterval(loginLoveNoteTimer);
+    loginLoveNoteTimer = null;
+  }
+}
+
 function showLogin() {
   document.body.classList.add("locked");
   loginOverlay?.classList.remove("hidden");
   loginSubmit.disabled = false;
+  startLoginLoveNoteCycle();
   setTimeout(() => loginPassword?.focus(), 50);
 }
 
@@ -793,6 +823,7 @@ function hideLogin() {
   document.body.classList.remove("locked");
   loginOverlay?.classList.add("hidden");
   if (logoutBtn) logoutBtn.hidden = false;
+  stopLoginLoveNoteCycle();
 }
 
 function bootAuth() {

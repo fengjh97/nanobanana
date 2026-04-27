@@ -869,6 +869,17 @@ async function attemptLogin() {
     setToken(data.token);
     loginStatus.textContent = "进入...";
     loginPassword.value = "";
+
+    // Hide the CSS book at the same instant the WebGL flip starts so the
+    // user sees one continuous close motion, not a fade + a flip.
+    if (window.loginFlip?.ready()) {
+      const book = document.querySelector(".login-book");
+      if (book) book.style.visibility = "hidden";
+      try {
+        await window.loginFlip.playClose();
+      } catch (_) { /* fall through to plain hide */ }
+      if (book) book.style.visibility = "";
+    }
     hideLogin();
   } catch (err) {
     loginStatus.textContent = "网络错误。";

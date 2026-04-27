@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Setup · 静闻的光影花园</title>
+    <link rel="icon" href="./static/logo.png" type="image/png" />
+    <link rel="stylesheet" href="./static/styles.css" />
+    <style>
+      .setup-wrap {
+        max-width: 640px;
+        margin: 60px auto;
+        padding: 36px 32px;
+        background: var(--paper);
+        border-radius: 18px;
+        box-shadow: 0 24px 60px rgba(26, 18, 16, 0.18);
+        position: relative;
+        z-index: 2;
+      }
+      .setup-wrap h1 {
+        font-family: "Marcellus", serif;
+        font-size: 28px;
+        margin: 0 0 8px;
+      }
+      .setup-wrap p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: rgba(26, 18, 16, 0.78);
+        margin: 0 0 12px;
+      }
+      .setup-wrap label {
+        display: block;
+        margin-top: 18px;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .setup-wrap input,
+      .setup-wrap textarea {
+        width: 100%;
+        margin-top: 6px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(26, 18, 16, 0.18);
+        font-family: "Manrope", sans-serif;
+        font-size: 14px;
+        background: #fff;
+        color: var(--ink);
+      }
+      .setup-wrap textarea {
+        min-height: 160px;
+        font-family: "Menlo", "Consolas", monospace;
+        font-size: 12.5px;
+      }
+      .setup-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+        justify-content: flex-end;
+      }
+      .setup-actions button {
+        padding: 9px 18px;
+        border-radius: 999px;
+        border: none;
+        background: var(--accent-dark);
+        color: #fff;
+        font-family: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .setup-actions button.ghost {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid rgba(26, 18, 16, 0.2);
+      }
+      .setup-status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: rgba(26, 18, 16, 0.7);
+        min-height: 18px;
+      }
+      .setup-warn {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: rgba(193, 69, 44, 0.08);
+        border-left: 3px solid var(--accent-dark);
+        border-radius: 6px;
+        font-size: 13px;
+        color: rgba(26, 18, 16, 0.78);
+      }
+      .pwd-meter {
+        margin-top: 6px;
+        height: 6px;
+        background: rgba(26, 18, 16, 0.08);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .pwd-meter > span {
+        display: block;
+        height: 100%;
+        width: 0;
+        transition: width 0.2s ease, background 0.2s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <main class="setup-wrap">
+      <h1>本地生成加密密文</h1>
+      <p>
+        所有计算都在你这台浏览器里完成，
+        <strong>明文 API key 和密码不会离开此页面</strong>，也不会通过网络发出。
+      </p>
+      <p class="setup-warn">
+        ⚠️ 密码强度直接决定安全性。攻击者拿到 <code>key.enc.json</code> 可以离线暴破。
+        请用 <strong>≥ 16 位</strong> 的随机字符串，或 4–6 个不相关单词组成的 passphrase。
+      </p>
+
+      <label for="apiKey">Google API Key（明文）</label>
+      <input id="apiKey" type="text" placeholder="AIzaSy..." autocomplete="off" spellcheck="false" />
+
+      <label for="password">登录密码</label>
+      <input id="password" type="password" placeholder="至少 16 位 / 长 passphrase" autocomplete="new-password" />
+      <div class="pwd-meter"><span id="pwdMeter"></span></div>
+
+      <label for="password2">再输一次密码</label>
+      <input id="password2" type="password" autocomplete="new-password" />
+
+      <div class="setup-actions">
+        <button id="encryptBtn" type="button">生成密文</button>
+      </div>
+      <p id="status" class="setup-status"></p>
+
+      <label for="output">生成的 <code>key.enc.json</code> 内容</label>
+      <textarea id="output" readonly placeholder="点击「生成密文」后这里会出现 JSON 内容"></textarea>
+      <div class="setup-actions">
+        <button id="copyBtn" type="button" class="ghost">复制</button>
+        <button id="downloadBtn" type="button" class="ghost">下载 key.enc.json</button>
+      </div>
+
+      <p style="margin-top: 22px; font-size: 13px; color: rgba(26, 18, 16, 0.65);">
+        把上面的 JSON 内容
+        <strong>覆盖</strong>到仓库根目录的 <code>key.enc.json</code>，commit 推送即可。
+        Pages 重建完成后访问主页就是登录界面。
+      </p>
+    </main>
+
+    <script>
+      const ITERATIONS = 600000;
+
+      function bytesToBase64(bytes) {
+        let binary = "";
+        const arr = new Uint8Array(bytes);
+        for (let i = 0; i < arr.byteLength; i += 1) {
+          binary += String.fromCharCode(arr[i]);
+        }
+        return btoa(binary);
+      }
+
+      async function encryptKey(plaintext, password) {
+        const enc = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        const baseKey = await crypto.subtle.importKey(
+          "raw",
+          enc.encode(password),
+          "PBKDF2",
+          false,
+          ["deriveKey"]
+        );
+        const aesKey = await crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+          baseKey,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt"]
+        );
+        const ct = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          aesKey,
+          enc.encode(plaintext)
+        );
+
+        return {
+          v: 1,
+          kdf: "PBKDF2-SHA256",
+          iters: ITERATIONS,
+          salt: bytesToBase64(salt),
+          iv: bytesToBase64(iv),
+          ct: bytesToBase64(ct),
+        };
+      }
+
+      function scorePassword(pw) {
+        if (!pw) return 0;
+        let score = 0;
+        if (pw.length >= 8) score += 1;
+        if (pw.length >= 12) score += 1;
+        if (pw.length >= 16) score += 1;
+        if (pw.length >= 20) score += 1;
+        if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+        if (/\d/.test(pw)) score += 1;
+        if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+        return Math.min(score, 6);
+      }
+
+      const apiKeyInput = document.getElementById("apiKey");
+      const passwordInput = document.getElementById("password");
+      const password2Input = document.getElementById("password2");
+      const pwdMeter = document.getElementById("pwdMeter");
+      const encryptBtn = document.getElementById("encryptBtn");
+      const status = document.getElementById("status");
+      const output = document.getElementById("output");
+      const copyBtn = document.getElementById("copyBtn");
+      const downloadBtn = document.getElementById("downloadBtn");
+
+      passwordInput.addEventListener("input", () => {
+        const score = scorePassword(passwordInput.value);
+        const pct = (score / 6) * 100;
+        pwdMeter.style.width = `${pct}%`;
+        if (score <= 2) pwdMeter.style.background = "#c1452c";
+        else if (score <= 4) pwdMeter.style.background = "#d99a3a";
+        else pwdMeter.style.background = "#3a8a5e";
+      });
+
+      encryptBtn.addEventListener("click", async () => {
+        status.textContent = "";
+        output.value = "";
+        const key = (apiKeyInput.value || "").trim();
+        const pw = passwordInput.value;
+        const pw2 = password2Input.value;
+        if (!key) {
+          status.textContent = "请输入 API key。";
+          return;
+        }
+        if (!pw) {
+          status.textContent = "请输入密码。";
+          return;
+        }
+        if (pw !== pw2) {
+          status.textContent = "两次输入的密码不一致。";
+          return;
+        }
+        if (scorePassword(pw) < 3) {
+          if (!confirm("密码强度较弱，确定继续？建议至少 16 位 / 用长 passphrase。")) {
+            return;
+          }
+        }
+        encryptBtn.disabled = true;
+        status.textContent = "加密中（PBKDF2 60 万轮，可能要几秒）...";
+        try {
+          const blob = await encryptKey(key, pw);
+          output.value = JSON.stringify(blob, null, 2);
+          status.textContent = "完成。把上面 JSON 覆盖 key.enc.json 后 commit 推送即可。";
+        } catch (err) {
+          status.textContent = "加密失败: " + (err?.message || err);
+        } finally {
+          encryptBtn.disabled = false;
+        }
+      });
+
+      copyBtn.addEventListener("click", async () => {
+        if (!output.value) return;
+        try {
+          await navigator.clipboard.writeText(output.value);
+          status.textContent = "已复制到剪贴板。";
+        } catch (_) {
+          output.select();
+          document.execCommand("copy");
+          status.textContent = "已复制（fallback）。";
+        }
+      });
+
+      downloadBtn.addEventListener("click", () => {
+        if (!output.value) return;
+        const blob = new Blob([output.value], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "key.enc.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>

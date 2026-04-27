@@ -16,8 +16,8 @@
   </head>
   <body>
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
-    <button id="settingsBtn" class="settings-btn" type="button" aria-label="设置 API Key">
-      ⚙ API Key
+    <button id="logoutBtn" class="settings-btn" type="button" aria-label="退出登录" hidden>
+      退出
     </button>
     <div class="page">
       <header class="hero">
@@ -179,19 +179,29 @@
 
     </div>
 
-    <div id="apiKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
-      <div class="modal-card">
-        <h3 id="apiKeyModalTitle">设置 Google AI Studio API Key</h3>
-        <p class="modal-desc">
-          这个站点是纯前端的，密钥只会保存在你这台浏览器的 localStorage，并直接从你的浏览器调用 Google 接口。
-          请到 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> 创建一个免费 key 后粘贴下方。
-        </p>
-        <input id="apiKeyInput" type="password" placeholder="AIzaSy..." autocomplete="off" spellcheck="false" />
-        <div class="modal-actions">
-          <button id="apiKeyClearBtn" type="button" class="ghost">清除</button>
-          <button id="apiKeySaveBtn" type="button">保存</button>
+    <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <div class="login-card">
+        <div class="login-logo">
+          <img src="./static/logo.png" alt="" />
         </div>
-        <p id="apiKeyStatus" class="modal-status"></p>
+        <h2 id="loginTitle">静闻的光影花园</h2>
+        <p class="login-sub">输入密码进入</p>
+        <form id="loginForm" autocomplete="off">
+          <input
+            id="loginPassword"
+            type="password"
+            placeholder="密码"
+            autocomplete="current-password"
+            autofocus
+            required
+          />
+          <button id="loginSubmit" type="submit">进入</button>
+        </form>
+        <p id="loginStatus" class="login-status"></p>
+        <p id="loginSetupHint" class="login-setup-hint" hidden>
+          尚未配置 <code>key.enc.json</code>。请先到
+          <a href="./setup.html">setup 页</a> 生成密文并 commit 推送。
+        </p>
       </div>
     </div>
 

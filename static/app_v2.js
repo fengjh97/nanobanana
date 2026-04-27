@@ -163,12 +163,13 @@ const loveNoteText = document.getElementById("loveNoteText");
 const progressBar = document.getElementById("progressBar");
 const countdownText = document.getElementById("countdownText");
 const canvas = document.getElementById("hero-canvas");
-const settingsBtn = document.getElementById("settingsBtn");
-const apiKeyModal = document.getElementById("apiKeyModal");
-const apiKeyInput = document.getElementById("apiKeyInput");
-const apiKeySaveBtn = document.getElementById("apiKeySaveBtn");
-const apiKeyClearBtn = document.getElementById("apiKeyClearBtn");
-const apiKeyStatus = document.getElementById("apiKeyStatus");
+const logoutBtn = document.getElementById("logoutBtn");
+const loginOverlay = document.getElementById("loginOverlay");
+const loginForm = document.getElementById("loginForm");
+const loginPassword = document.getElementById("loginPassword");
+const loginSubmit = document.getElementById("loginSubmit");
+const loginStatus = document.getElementById("loginStatus");
+const loginSetupHint = document.getElementById("loginSetupHint");
 
 let renderer;
 let scene;
@@ -520,8 +521,8 @@ function boostPetals(active) {
 async function generateImages() {
   const apiKey = getApiKey();
   if (!apiKey) {
-    statusText.textContent = "请先点右上角 ⚙ API Key 设置 Google 密钥。";
-    openApiKeyModal();
+    statusText.textContent = "未登录。";
+    showLogin();
     return;
   }
 
@@ -618,8 +619,9 @@ async function generateImages() {
       slots[i].textContent = "失败";
       statusText.textContent = error?.message || "请求失败。";
       if (error?.status === 401 || error?.status === 403) {
-        statusText.textContent = "API Key 无效或被拒绝，请重新设置。";
-        openApiKeyModal();
+        statusText.textContent = "API Key 已失效，正在退出重新登录...";
+        setApiKey("");
+        setTimeout(() => location.reload(), 1500);
       }
       break;
     }
@@ -634,8 +636,8 @@ async function generateImages() {
 async function generateStyleImages() {
   const apiKey = getApiKey();
   if (!apiKey) {
-    styleStatusText.textContent = "请先点右上角 ⚙ API Key 设置 Google 密钥。";
-    openApiKeyModal();
+    styleStatusText.textContent = "未登录。";
+    showLogin();
     return;
   }
 
@@ -724,8 +726,9 @@ async function generateStyleImages() {
       slots[i].textContent = "失败";
       styleStatusText.textContent = error?.message || "请求失败。";
       if (error?.status === 401 || error?.status === 403) {
-        styleStatusText.textContent = "API Key 无效或被拒绝，请重新设置。";
-        openApiKeyModal();
+        styleStatusText.textContent = "API Key 已失效，正在退出重新登录...";
+        setApiKey("");
+        setTimeout(() => location.reload(), 1500);
       }
       break;
     }
@@ -802,61 +805,120 @@ if (styleAutoRatioControl) {
   styleAutoRatioControl.classList.add("active");
 }
 
-function openApiKeyModal() {
-  if (!apiKeyModal) return;
-  apiKeyInput.value = getApiKey();
-  apiKeyStatus.textContent = "";
-  apiKeyModal.classList.add("open");
-  setTimeout(() => apiKeyInput.focus(), 50);
+function base64ToBytes(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
-function closeApiKeyModal() {
-  apiKeyModal?.classList.remove("open");
+async function decryptKey(blob, password) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  const aesKey = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: base64ToBytes(blob.salt),
+      iterations: blob.iters || 600000,
+      hash: "SHA-256",
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: base64ToBytes(blob.iv) },
+    aesKey,
+    base64ToBytes(blob.ct)
+  );
+  return new TextDecoder().decode(plaintext);
 }
 
-function refreshSettingsBtnLabel() {
-  if (!settingsBtn) return;
-  settingsBtn.textContent = getApiKey() ? "⚙ API Key" : "⚙ 设置 API Key";
+function showLogin({ setupMissing = false } = {}) {
+  document.body.classList.add("locked");
+  loginOverlay?.classList.remove("hidden");
+  if (setupMissing) {
+    loginSetupHint.hidden = false;
+    loginSubmit.disabled = true;
+    loginStatus.textContent = "尚未配置加密密钥。";
+  } else {
+    loginSetupHint.hidden = true;
+    loginSubmit.disabled = false;
+  }
+  setTimeout(() => loginPassword?.focus(), 50);
 }
 
-if (settingsBtn) {
-  settingsBtn.addEventListener("click", openApiKeyModal);
+function hideLogin() {
+  document.body.classList.remove("locked");
+  loginOverlay?.classList.add("hidden");
+  if (logoutBtn) logoutBtn.hidden = false;
 }
 
-if (apiKeyModal) {
-  apiKeyModal.addEventListener("click", (event) => {
-    if (event.target === apiKeyModal) closeApiKeyModal();
-  });
+let cachedEncryptedBlob = null;
+async function fetchEncryptedBlob() {
+  if (cachedEncryptedBlob) return cachedEncryptedBlob;
+  const res = await fetch("./key.enc.json", { cache: "no-cache" });
+  if (!res.ok) throw new Error("missing");
+  const blob = await res.json();
+  if (!blob.salt || !blob.iv || !blob.ct) throw new Error("invalid blob");
+  cachedEncryptedBlob = blob;
+  return blob;
 }
 
-if (apiKeySaveBtn) {
-  apiKeySaveBtn.addEventListener("click", () => {
-    const value = (apiKeyInput.value || "").trim();
-    if (!value) {
-      apiKeyStatus.textContent = "请输入 key 后再保存。";
-      return;
+async function bootAuth() {
+  if (getApiKey()) {
+    hideLogin();
+    return;
+  }
+  try {
+    await fetchEncryptedBlob();
+  } catch (_) {
+    showLogin({ setupMissing: true });
+    return;
+  }
+  showLogin();
+}
+
+if (loginForm) {
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const pw = loginPassword.value;
+    if (!pw) return;
+    loginSubmit.disabled = true;
+    loginStatus.textContent = "解密中...";
+    try {
+      const blob = await fetchEncryptedBlob();
+      const apiKey = await decryptKey(blob, pw);
+      if (!apiKey || !apiKey.startsWith("AIza")) {
+        throw new Error("decoded value is not an API key");
+      }
+      setApiKey(apiKey);
+      loginStatus.textContent = "进入...";
+      loginPassword.value = "";
+      hideLogin();
+    } catch (err) {
+      loginStatus.textContent = "密码错误。";
+      loginPassword.value = "";
+      loginSubmit.disabled = false;
+      setTimeout(() => loginPassword?.focus(), 50);
     }
-    setApiKey(value);
-    apiKeyStatus.textContent = "已保存到当前浏览器。";
-    refreshSettingsBtnLabel();
-    setTimeout(closeApiKeyModal, 600);
   });
 }
 
-if (apiKeyClearBtn) {
-  apiKeyClearBtn.addEventListener("click", () => {
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", () => {
     setApiKey("");
-    apiKeyInput.value = "";
-    apiKeyStatus.textContent = "已清除。";
-    refreshSettingsBtnLabel();
+    location.reload();
   });
 }
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeApiKeyModal();
-});
-
-refreshSettingsBtnLabel();
-if (!getApiKey()) {
-  openApiKeyModal();
-}
+bootAuth();

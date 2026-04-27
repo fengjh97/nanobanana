@@ -3,19 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>静闻的光影花园</title>
+    <title>静闻的私密小宇宙</title>
     <link rel="icon" href="./static/logo.png" type="image/png" />
     <link rel="apple-touch-icon" href="./static/logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Marcellus&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Marcellus&family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./static/styles.css" />
   </head>
-  <body>
+  <body class="locked">
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="petals-fallback" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+
     <button id="logoutBtn" class="logout-mark" type="button" aria-label="退出登录" hidden>
       <span class="logout-mark-text">退出</span>
       <svg class="logout-mark-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -29,20 +35,23 @@
         />
       </svg>
     </button>
+
     <div class="page">
       <header class="hero">
         <div class="hero-text">
-          <p class="eyebrow">For 静闻 · Vertex Image Lab</p>
-          <h1>静闻的光影花园</h1>
+          <p class="eyebrow">For Jingwen Zhang · 我们的私密小宇宙</p>
+          <h1>今天，给你寄一封光</h1>
           <p class="subtitle">
-            把一张照片变成三种惊喜。选择一个修正模板，让画面更像你心里的故事。
+            把一张照片变成三种惊喜。挑一种心情的滤镜，让我替你把日子轻轻翻新。
           </p>
         </div>
-        <div class="hero-card">
-          <div class="badge">Love Notes</div>
-          <div class="model-name">给静闻的专属礼物</div>
-          <div class="helper" id="loveNoteText">我的第一个诺言：每次都把你放在心尖上。</div>
-        </div>
+        <aside class="hero-card">
+          <div class="hero-card-flap" aria-hidden="true"></div>
+          <p class="badge">Love Notes</p>
+          <p class="model-name">给静闻的专属礼物</p>
+          <p class="helper" id="loveNoteText">我的第一个诺言：每次都把你放在心尖上。</p>
+          <p class="hero-card-stamp" aria-hidden="true">寄</p>
+        </aside>
       </header>
 
       <main class="layout">
@@ -53,7 +62,7 @@
           </div>
 
           <div class="tab-panel active" id="tab-single">
-            <h2>灵感输入</h2>
+            <h2 class="panel-title"><span class="panel-title-num">壹</span>放进一张你喜欢的</h2>
             <label class="drop" for="imageInput">
               <input id="imageInput" type="file" accept="image/*" />
               <span>放一张照片，让故事从这里开始</span>
@@ -104,12 +113,14 @@
               <div class="progress-bar" id="progressBar"></div>
               <span id="countdownText">准备中</span>
             </div>
-            <button id="generateBtn">为静闻生成 3 张惊喜</button>
+            <button id="generateBtn" class="primary-action">
+              <span>为静闻生成 3 张惊喜</span>
+            </button>
             <p class="note" id="statusText"></p>
           </div>
 
           <div class="tab-panel" id="tab-style">
-            <h2>风格模仿</h2>
+            <h2 class="panel-title"><span class="panel-title-num">贰</span>风格模仿</h2>
             <div class="style-grid">
               <div class="style-box">
                 <label class="drop small" for="styleImageInput">
@@ -169,14 +180,14 @@
               <div class="progress-bar" id="styleProgressBar"></div>
               <span id="styleCountdownText">准备中</span>
             </div>
-            <button id="styleGenerateBtn">开始生成</button>
+            <button id="styleGenerateBtn" class="primary-action"><span>开始生成</span></button>
             <p class="note" id="styleStatusText"></p>
           </div>
         </section>
 
         <section class="panel output">
           <div class="output-header">
-            <h2>心动结果</h2>
+            <h2 class="panel-title"><span class="panel-title-num">叁</span>心动结果</h2>
             <span id="outputText"></span>
           </div>
           <div class="grid" id="resultGrid">
@@ -189,54 +200,82 @@
 
     </div>
 
+    <!-- Login overlay: open-book spread -->
     <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-      <div class="login-card">
-        <svg class="login-ornament" viewBox="0 0 240 24" aria-hidden="true">
-          <line x1="0" y1="12" x2="92" y2="12" stroke="currentColor" stroke-width="0.7" />
-          <circle cx="108" cy="12" r="1.6" fill="none" stroke="currentColor" stroke-width="0.7" />
-          <circle cx="120" cy="12" r="3.6" fill="currentColor" />
-          <circle cx="132" cy="12" r="1.6" fill="none" stroke="currentColor" stroke-width="0.7" />
-          <line x1="148" y1="12" x2="240" y2="12" stroke="currentColor" stroke-width="0.7" />
-        </svg>
-        <p class="login-eyebrow">For 静闻 · Vertex Image Lab</p>
-        <h2 id="loginTitle">静闻的光影花园</h2>
-        <p class="login-sub">轻轻按下，进入光与影的花园</p>
-        <div id="loginForm" class="login-form">
-          <input
-            id="loginPassword"
-            type="text"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            maxlength="8"
-            placeholder="• • • •"
-            autocomplete="one-time-code"
-            autocorrect="off"
-            spellcheck="false"
-            data-lpignore="true"
-            data-1p-ignore
-            data-form-type="other"
-            autofocus
-          />
-          <button id="loginSubmit" type="button">
-            <span>进入</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M5 12h14M13 6l6 6-6 6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
+      <div class="login-book">
+        <!-- left page: love letter -->
+        <div class="login-page login-page-left">
+          <div class="login-logo" aria-hidden="true">
+            <span class="login-logo-tile">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 17l5-5 4 4 7-7 2 2v9H3z" fill="currentColor"/>
+                <circle cx="9" cy="8" r="1.6" fill="currentColor"/>
+              </svg>
+            </span>
+          </div>
+          <p class="login-eyebrow">FOR JINGWEN ZHANG</p>
+          <h2 id="loginTitle" class="login-title">静闻的私密小宇宙</h2>
+          <p class="login-sub">
+            这里是我对你温柔的日常存档。<br />
+            愿每一次登录，都是一次靠近。
+          </p>
+          <div class="login-letter" role="list">
+            <p class="login-letter-line" role="listitem">"你出现以后，日子都有了香气。"</p>
+            <p class="login-letter-line" role="listitem">"我想用一生的细节，去证明我喜欢你。"</p>
+            <p class="login-letter-line" role="listitem">"你是我想走慢一点的原因。"</p>
+          </div>
+          <p class="login-signoff">— 想你的人，亲笔</p>
         </div>
-        <p id="loginStatus" class="login-status"></p>
 
-        <div class="login-letter">
-          <span class="login-letter-mark" aria-hidden="true">”</span>
-          <p id="loginLoveNote" class="login-love-note">我的第一个诺言：每次都把你放在心尖上。</p>
-          <span class="login-letter-stamp">— 给你</span>
+        <!-- spine -->
+        <div class="login-spine" aria-hidden="true">
+          <div class="login-spine-thread"></div>
+          <div class="login-spine-thread"></div>
+          <div class="login-spine-thread"></div>
+        </div>
+
+        <!-- right page: today's pass -->
+        <div class="login-page login-page-right">
+          <p class="login-page-label">今日凭证</p>
+          <p class="login-page-hint" id="loginLoveNote">
+            轻轻按下四个数字，门就会开。
+          </p>
+          <div id="loginForm" class="login-form">
+            <input
+              id="loginPassword"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="8"
+              placeholder="• • • •"
+              autocomplete="one-time-code"
+              autocorrect="off"
+              spellcheck="false"
+              data-lpignore="true"
+              data-1p-ignore
+              data-form-type="other"
+              autofocus
+            />
+            <button id="loginSubmit" type="button" class="login-submit">
+              <span>进入我们的对话</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 12h14M13 6l6 6-6 6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+          <p id="loginStatus" class="login-status"></p>
+          <div class="login-page-footer" aria-hidden="true">
+            <span class="login-page-stamp">壹玖陆</span>
+            <span class="login-page-rule"></span>
+            <span class="login-page-num">No. 001</span>
+          </div>
         </div>
       </div>
     </div>

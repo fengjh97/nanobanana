@@ -459,13 +459,161 @@ button:hover {
   background: #faf1ec;
 }
 
+/* === Mobile breakpoints — editor page === */
 @media (max-width: 768px) {
-  .hero {
-    padding: 20px;
+  .page {
+    padding: 18px 14px 40px;
   }
 
-  .page {
-    padding: 20px 16px 48px;
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 22px 20px;
+    border-radius: 18px;
+  }
+
+  .hero-text {
+    max-width: 100%;
+  }
+
+  .hero-text h1 {
+    font-size: clamp(1.7rem, 6.5vw, 2.4rem);
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .eyebrow {
+    font-size: 0.65rem;
+    letter-spacing: 0.28em;
+  }
+
+  .hero-card {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    padding: 18px 20px 22px;
+  }
+
+  .hero-card .helper {
+    font-size: 0.88rem;
+  }
+
+  .hero-card-stamp {
+    right: 14px;
+    bottom: 12px;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .layout {
+    gap: 16px;
+    margin-top: 18px;
+  }
+
+  .panel {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+
+  .panel-title {
+    font-size: 1.2rem;
+    gap: 10px;
+  }
+
+  .panel-title-num {
+    font-size: 0.85rem;
+    padding: 1px 8px;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  .drop {
+    min-height: 140px;
+  }
+
+  textarea,
+  input[type="text"],
+  input[type="number"],
+  input[type="range"] {
+    font-size: 16px; /* keep ≥16px so iOS doesn't auto-zoom */
+  }
+
+  .ratio-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ratio-btn {
+    min-width: 44px;
+    min-height: 36px;
+    flex: 0 0 auto;
+  }
+
+  .quick-templates {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    min-height: 36px;
+  }
+
+  .primary-action,
+  #generateBtn,
+  #styleGenerateBtn {
+    min-height: 52px;
+    font-size: 0.95rem;
+    letter-spacing: 0.14em;
+  }
+
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .style-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .logout-mark {
+    top: 16px;
+    right: 16px;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    padding: 6px 4px 7px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .hero {
+    padding: 18px 16px;
+  }
+
+  .hero-text h1 {
+    font-size: 1.7rem;
   }
 }
 

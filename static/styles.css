@@ -642,6 +642,11 @@ button:hover {
   color: var(--ink);
   caret-color: var(--accent-dark);
   transition: border-color 0.3s ease;
+  /* Visually mask digits without using type=password (avoids Chrome's
+     "save password" + autofill mis-firing). Works in Webkit/Blink/Gecko. */
+  -webkit-text-security: disc;
+  -moz-text-security: disc;
+  text-security: disc;
 }
 
 #loginPassword::placeholder {

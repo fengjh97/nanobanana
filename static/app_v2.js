@@ -750,12 +750,14 @@ tabButtons.forEach((btn) => {
   });
 });
 
-renderTemplateOptions();
-renderRatioChoices();
-renderStyleRatioChoices();
-renderPlaceholders();
-setupThree();
-rotateLoveNotes();
+// Guard each non-critical UI bootstrap so a failure (e.g. WebGL unavailable
+// in the user's browser) cannot abort script execution and break login.
+try { renderTemplateOptions(); } catch (e) { console.warn("renderTemplateOptions failed:", e); }
+try { renderRatioChoices(); } catch (e) { console.warn("renderRatioChoices failed:", e); }
+try { renderStyleRatioChoices(); } catch (e) { console.warn("renderStyleRatioChoices failed:", e); }
+try { renderPlaceholders(); } catch (e) { console.warn("renderPlaceholders failed:", e); }
+try { setupThree(); } catch (e) { console.warn("setupThree (sakura petals) failed:", e); }
+try { rotateLoveNotes(); } catch (e) { console.warn("rotateLoveNotes failed:", e); }
 
 if (autoRatioControl) {
   autoRatioControl.addEventListener("click", () => {
@@ -814,8 +816,8 @@ function stopLoginLoveNoteCycle() {
 function showLogin() {
   document.body.classList.add("locked");
   loginOverlay?.classList.remove("hidden");
-  loginSubmit.disabled = false;
-  startLoginLoveNoteCycle();
+  if (loginSubmit) loginSubmit.disabled = false;
+  try { startLoginLoveNoteCycle(); } catch (_) { /* decorative, ignore */ }
   setTimeout(() => loginPassword?.focus(), 50);
 }
 
@@ -823,7 +825,7 @@ function hideLogin() {
   document.body.classList.remove("locked");
   loginOverlay?.classList.add("hidden");
   if (logoutBtn) logoutBtn.hidden = false;
-  stopLoginLoveNoteCycle();
+  try { stopLoginLoveNoteCycle(); } catch (_) { /* ignore */ }
 }
 
 function bootAuth() {
@@ -831,48 +833,61 @@ function bootAuth() {
   else showLogin();
 }
 
-if (loginForm) {
-  loginForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const pin = loginPassword.value.trim();
-    if (!pin) return;
-    loginSubmit.disabled = true;
-    loginStatus.textContent = "登录中...";
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
-      const data = await res.json().catch(() => ({}));
+async function attemptLogin() {
+  const pin = loginPassword.value.trim();
+  if (!pin) return;
+  loginSubmit.disabled = true;
+  loginStatus.textContent = "登录中...";
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json().catch(() => ({}));
 
-      if (res.status === 423) {
-        const minutes = Math.ceil((data.retry_after || 1800) / 60);
-        loginStatus.textContent = `已锁定，约 ${minutes} 分钟后再试。`;
-        loginSubmit.disabled = true;
-        return;
-      }
-      if (res.status === 401) {
-        const left = typeof data.attempts_left === "number" ? data.attempts_left : "?";
-        loginStatus.textContent = `PIN 错误，还剩 ${left} 次。`;
-        loginPassword.value = "";
-        loginSubmit.disabled = false;
-        setTimeout(() => loginPassword?.focus(), 50);
-        return;
-      }
-      if (!res.ok || !data.token) {
-        loginStatus.textContent = data.error || "服务异常。";
-        loginSubmit.disabled = false;
-        return;
-      }
-
-      setToken(data.token);
-      loginStatus.textContent = "进入...";
+    if (res.status === 423) {
+      const minutes = Math.ceil((data.retry_after || 1800) / 60);
+      loginStatus.textContent = `已锁定，约 ${minutes} 分钟后再试。`;
+      loginSubmit.disabled = true;
+      return;
+    }
+    if (res.status === 401) {
+      const left = typeof data.attempts_left === "number" ? data.attempts_left : "?";
+      loginStatus.textContent = `PIN 错误，还剩 ${left} 次。`;
       loginPassword.value = "";
-      hideLogin();
-    } catch (err) {
-      loginStatus.textContent = "网络错误。";
       loginSubmit.disabled = false;
+      setTimeout(() => loginPassword?.focus(), 50);
+      return;
+    }
+    if (!res.ok || !data.token) {
+      loginStatus.textContent = data.error || "服务异常。";
+      loginSubmit.disabled = false;
+      return;
+    }
+
+    setToken(data.token);
+    loginStatus.textContent = "进入...";
+    loginPassword.value = "";
+    hideLogin();
+  } catch (err) {
+    loginStatus.textContent = "网络错误。";
+    loginSubmit.disabled = false;
+  }
+}
+
+if (loginSubmit) {
+  loginSubmit.addEventListener("click", (event) => {
+    event.preventDefault();
+    attemptLogin();
+  });
+}
+
+if (loginPassword) {
+  loginPassword.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      attemptLogin();
     }
   });
 }
